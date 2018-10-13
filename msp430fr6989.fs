@@ -1,5 +1,19 @@
 \ extra routines for my purposes
 compiletoflash
+\ missing functions that I think are really neat
+: cor! ( value address -- ) 
+  swap over ( address value address )
+  c@ ( address value loadedval )
+  or
+  swap c! ;
+: cand! ( value address -- )
+  swap over 
+  c@
+  and
+  swap c! ;
+: cnotand! ( value address -- ) swap not swap cand! ;
+
+  
 \ addresses taken from data sheets
 : &pasel0 ( port-base -- addr ) $0a + ;
 : &pasel1 ( port-base -- addr ) $0c + ;
@@ -277,16 +291,6 @@ $0000 ,  \ 127 DEL
 : bit-set? ( value bit -- f ) and 0<> ;
 : button-s1-pressed? ( -- f ) P1IN c@ Bit1 bit-set? ;
 : button-s2-pressed? ( -- f ) P1IN c@ Bit2 bit-set? ;
-: cor! ( value address -- ) 
-  swap over ( address value address )
-  c@ ( address value loadedval )
-  or
-  swap c! ;
-: cand! ( value address -- )
-  swap over 
-  c@
-  and
-  swap c! ;
 \ taken from the blinky examples
 : led-init ( -- ) 
   Bit0 P1DIR cor!
@@ -299,5 +303,22 @@ $0000 ,  \ 127 DEL
      else
         swap cor!
      then ;
-  
+\ gpio interaction routines taken from gpio.c of the examples
+: set-as-output-pin ( port pins -- ) 
+  swap ( pins port )
+  2dup ( pins port pins port )
+  2dup ( pins port pins port pins port )
+  &pasel0 cnotand!
+  &pasel1 cnotand!
+  &padir cor! ;
+: set-as-input-pin ( port pins -- )
+  swap ( pins port )
+  2dup ( pins port pins port )
+  2dup ( pins port pins port pins port )
+  2dup ( pins port pins port pins port pins port )
+  &pasel0 cnotand!
+  &pasel1 cnotand!
+  &padir cnotand!
+  &paren cnotand! ;
+	
 compiletoram
