@@ -1,52 +1,65 @@
 \ extra routines for my purposes
 compiletoflash
 \ addresses taken from data sheets
-$200 constant P1IN
-$201 constant P2IN
-$202 constant P1OUT
-$203 constant P2OUT
-$204 constant P1DIR
-$205 constant P2DIR
-$220 constant P3IN
-$221 constant P4IN
-$222 constant P3OUT
-$223 constant P4OUT
-$224 constant P3DIR
-$225 constant P4DIR
-$240 constant P5IN
-$241 constant P6IN
-$242 constant P5OUT
-$243 constant P6OUT
-$244 constant P5DIR
-$245 constant P6DIR
-$260 constant P7IN
-$261 constant P8IN
-$262 constant P7OUT
-$263 constant P8OUT
-$264 constant P7DIR
-$265 constant P8DIR
-$280 constant P9IN
-$281 constant P10IN
-$282 constant P9OUT
-$283 constant P10OUT
-$284 constant P9DIR
-$285 constant P10DIR
-$80 constant Function7
-$40 constant Function6
-$20 constant Function5
-$10 constant Function4
-$08 constant Function3
-$04 constant Function2
-$02 constant Function1
-$01 constant Function0
+: &pasel0 ( port-base -- addr ) $0a + ;
+: &pasel1 ( port-base -- addr ) $0c + ;
+: &padir  ( port-base -- addr ) $04 + ;
+: &paren  ( port-base -- addr ) $06 + ;
+: &pain   ( port-base -- addr ) ;
+: &paout  ( port-base -- addr ) $02 + ;
+: &paiv   ( port-base -- addr ) $0e + ;
+: &paselc ( port-base -- addr ) $16 + ;
+: &paies  ( port-base -- addr ) $18 + ;
+: &paie   ( port-base -- addr ) $1a + ;
+: &paifg  ( port-base -- addr ) $1c + ;
+$200 constant P1BASE
+$201 constant P2BASE
+$220 constant P3BASE
+$221 constant P4BASE
+$240 constant P5BASE
+$241 constant P6BASE
+$260 constant P7BASE
+$261 constant P8BASE
+$280 constant P9BASE
+$281 constant P10BASE
+compiletoram
+: def-port-regs ( base "constants" -- ) 
+  compiletoflash
+  dup &pain constant ( in b )
+  dup &paout constant ( in out b )
+  dup &padir constant ( in out dir b )
+  dup &paren constant ( in out dir ren b )
+  dup &pasel0 constant ( in out dir ren sel0 b )
+  dup &pasel1 constant ( in out dir ren sel0 sel1 b )
+  dup &paiv constant 
+  dup &paselc constant 
+  dup &paies constant
+  dup &paie constant
+  dup &paifg constant 
+  compiletoram
+  drop ;
+p1base def-port-regs p1in p1out p1dir p1ren p1sel0 p1sel1 p1iv p1selc p1ies p1ie p1ifg
+p2base def-port-regs p2in p2out p2dir p2ren p2sel0 p2sel1 p2iv p2selc p2ies p2ie p2ifg
+p3base def-port-regs p3in p3out p3dir p3ren p3sel0 p3sel1 p3iv p3selc p3ies p3ie p3ifg
+p4base def-port-regs p4in p4out p4dir p4ren p4sel0 p4sel1 p4iv p4selc p4ies p4ie p4ifg
+p5base def-port-regs p5in p5out p5dir p5ren p5sel0 p5sel1 p5iv p5selc p5ies p5ie p5ifg
+p6base def-port-regs p6in p6out p6dir p6ren p6sel0 p6sel1 p6iv p6selc p6ies p6ie p6ifg
+p7base def-port-regs p7in p7out p7dir p7ren p7sel0 p7sel1 p7iv p7selc p7ies p7ie p7ifg
+p8base def-port-regs p8in p8out p8dir p8ren p8sel0 p8sel1 p8iv p8selc p8ies p8ie p8ifg
+p9base def-port-regs p9in p9out p9dir p9ren p9sel0 p9sel1 p9iv p9selc p9ies p9ie p9ifg
+p10base def-port-regs p10in p10out p10dir p10ren p10sel0 p10sel1 p10iv p10selc p10ies p10ie p10ifg
+compiletoflash
+$80 constant Bit7
+$40 constant Bit6
+$20 constant Bit5
+$10 constant Bit4
+$08 constant Bit3
+$04 constant Bit2
+$02 constant Bit1
+$01 constant Bit0
 
 
-\ taken from the blinky examples
-: led2-enable ( -- ) Function7 P9DIR c! ;
-: led1-enable ( -- ) Function0 P1DIR c! ;
-: pin-toggle ( func addr -- ) cxor! ;
-: led1-toggle ( -- ) Function0 P1OUT pin-toggle ;
-: led2-toggle ( -- ) Function7 P9OUT pin-toggle ;
+
 
 \ taken from the lcd examples verbatim
 \ -----------------------------------------------------------------------------
@@ -259,4 +272,32 @@ $0000 ,  \ 127 DEL
 
 :  .lcd ( n -- ) s>d tuck dabs <# # # # # # # rot sign #> typelcd ;
 : u.lcd ( u -- )   0           <# # # # # # #          #> typelcd ;
+
+\ interact with buttons and such
+: bit-set? ( value bit -- f ) and 0<> ;
+: button-s1-pressed? ( -- f ) P1IN c@ Bit1 bit-set? ;
+: button-s2-pressed? ( -- f ) P1IN c@ Bit2 bit-set? ;
+: cor! ( value address -- ) 
+  swap over ( address value address )
+  c@ ( address value loadedval )
+  or
+  swap c! ;
+: cand! ( value address -- )
+  swap over 
+  c@
+  and
+  swap c! ;
+\ taken from the blinky examples
+: led-init ( -- ) 
+  Bit0 P1DIR cor!
+  Bit7 P9DIR cor! ;
+: led1-toggle ( -- ) Bit0 P1OUT cxor! ;
+: led2-toggle ( -- ) Bit7 P9OUT cxor! ;
+: interrupt-edge! ( addr value edge -- )
+  0= if 
+        not swap cand!
+     else
+        swap cor!
+     then ;
+  
 compiletoram
