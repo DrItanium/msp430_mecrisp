@@ -1,11 +1,6 @@
 \ extra routines for my purposes
 compiletoflash
 \ missing functions that I think are really neat
-: c@and ( mask address -- v ) c@ and ;
-: c@or ( mask address -- v ) c@ or ;
-: cor! ( value address -- ) tuck c@or swap c! ;
-: cand! ( value address -- ) tuck c@and swap c! ;
-: cnotand! ( value address -- ) swap not swap cand! ;
   
 \ addresses taken from data sheets
 : &pasel0 ( port-base -- addr ) $0a + ;
@@ -285,8 +280,10 @@ $0000 ,  \ 127 DEL
 : bit-set? ( value bit -- f ) and 0<> ;
 \ taken from the blinky examples
 : led-init ( -- ) 
-  Pin0 P1DIR cor!
-  Pin7 P9DIR cor! ;
+  Pin0 P1DIR cbis!
+  Pin7 P9DIR cbis! ;
+: led1-off ( -- ) Pin0 P1OUT cbic! ;
+: led2-off ( -- ) Pin7 P9OUT cbic! ;
 : led1-toggle ( -- ) Pin0 P1OUT cxor! ;
 : led2-toggle ( -- ) Pin7 P9OUT cxor! ;
 \ gpio interaction routines taken from gpio.c of the examples
@@ -294,45 +291,45 @@ $00 constant gpio-low-to-high
 $01 constant gpio-high-to-low
 : gpio-digitize-pin-value ( value -- ) 0<> if 1 else 0 then ;
 : gpio-set-as-output-pin ( pins port -- ) 
-  2dup &pasel0 cnotand!
-  2dup &pasel1 cnotand!
-  &padir cor! ;
+  2dup &pasel0 cbic!
+  2dup &pasel1 cbic!
+  &padir cbis! ;
 : gpio-set-as-input-pin ( pins port -- )
-  2dup &pasel0 cnotand!
-  2dup &pasel1 cnotand!
-  2dup &padir cnotand!
-  &paren cnotand! ;
-: gpio-set-output-high-on-pin ( pins port -- ) &paout cor! ;
-: gpio-set-output-low-on-pin ( pins port -- ) &paout cnotand! ;
+  2dup &pasel0 cbic!
+  2dup &pasel1 cbic!
+  2dup &padir cbic!
+  &paren cbic! ;
+: gpio-set-output-high-on-pin ( pins port -- ) &paout cbis! ;
+: gpio-set-output-low-on-pin ( pins port -- ) &paout cbic! ;
 : gpio-toggle-output-on-pin ( pins port -- ) &paout cxor! ;
 : gpio-set-as-input-pin-with-pull-down-resistor ( pins port -- ) 
-  2dup &pasel0 cnotand! 
-  2dup &pasel1 cnotand!
-  2dup &padir  cnotand!
-  2dup &paren  cor!
-  &paout  cnotand!
+  2dup &pasel0 cbic! 
+  2dup &pasel1 cbic!
+  2dup &padir  cbic!
+  2dup &paren  cbis!
+  &paout  cbic!
   ;
 : gpio-set-as-input-pin-with-pull-up-resistor ( pins port -- ) 
-  2dup &pasel0 cnotand! 
-  2dup &pasel1 cnotand!
-  2dup &padir  cnotand!
-  2dup &paren  cor!
-  &paout  cor!  ;
+  2dup &pasel0 cbic! 
+  2dup &pasel1 cbic!
+  2dup &padir  cbic!
+  2dup &paren  cbis!
+  &paout  cbis!  ;
 
 : gpio-input-pin@ ( port -- v ) &pain c@ ;
 : gpio-iv@ ( port -- v ) &paiv c@ ;
-: gpio-enable-interrupt ( pins port -- ) &paie cor! ;
-: gpio-disable-interrupt ( pins port -- ) &paie cnotand! ;
-: gpio-interrupt-status@ ( pins port -- v ) &paifg c@and ;  
-: gpio-clear-interrupt ( pins port -- ) &paifg cnotand! ;
+: gpio-enable-interrupt ( pins port -- ) &paie cbis! ;
+: gpio-disable-interrupt ( pins port -- ) &paie cbic! ;
+: gpio-interrupt-status@ ( pins port -- v ) &paifg c@ and ;  
+: gpio-clear-interrupt ( pins port -- ) &paifg cbic! ;
 : gpio-select-interrupt-edge ( edge pins port -- )
   &paies ( edge pins port.ies )
   rot ( pins port.ies edge ) 
   0= 
   if \ low to high
-  	cnotand! 
+  	cbic! 
   else  \ high to low
-  	cor! 
+  	cbis!
   then ;
 \ button s1 is mapped to p1.1
 pin1 constant button-s1
@@ -362,5 +359,14 @@ button-s1 button-s2 or constant buttons-s1-s2
   button-s1-pressed? if led1-toggle then
   button-s2-pressed? if led2-toggle then
   buttons-s1-s2 port1 gpio-clear-interrupt ;
-
+: demo-led ( -- )
+  lcd-init
+  led-init
+  configure-buttons
+  led1-off
+  led2-off
+  s" demo" typelcd
+  ['] buttons-toggle-leds irq-port1 !
+  eint ;
+: l ( -- ) 0 parse typelcd ;
 compiletoram
