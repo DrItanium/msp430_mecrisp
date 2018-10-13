@@ -283,8 +283,6 @@ $0000 ,  \ 127 DEL
 
 \ interact with buttons and such
 : bit-set? ( value bit -- f ) and 0<> ;
-: button-s1-pressed? ( -- f ) P1IN c@ Pin1 bit-set? ;
-: button-s2-pressed? ( -- f ) P1IN c@ Pin2 bit-set? ;
 \ taken from the blinky examples
 : led-init ( -- ) 
   Pin0 P1DIR cor!
@@ -339,6 +337,8 @@ $01 constant gpio-high-to-low
 \ button s1 is mapped to p1.1
 pin1 constant button-s1
 pin2 constant button-s2
+$4 constant button-s1-iv
+$6 constant button-s2-iv
 button-s1 button-s2 or constant buttons-s1-s2
   \ taken from the outofbox example for msp430fr6989
 : configure-button ( edge pins port -- )
@@ -351,8 +351,16 @@ button-s1 button-s2 or constant buttons-s1-s2
   
 : configure-button-s1 ( -- ) gpio-high-to-low pin1 port1 configure-button ;
 : configure-button-s2 ( -- ) gpio-high-to-low pin2 port1 configure-button ;
-: configure-buttons ( -- ) gpio-high-to-low buttons-s1-s2 port1 configure-button ;
-: button-s1-pressed? ( -- f ) port1 gpio-iv@ button-s1 and 0<> ;
-: button-s2-pressed? ( -- f ) port1 gpio-iv@ button-s2 and 0<> ;
+: configure-buttons ( -- ) configure-button-s1 configure-button-s2 ;
+: button-s1-pressed? ( ifg -- f ) button-s1-iv = ;
+: button-s2-pressed? ( ifg -- f ) button-s2-iv = ;
+
+: buttons-toggle-leds ( -- ) 
+  \ simple routine that can be easily installed to an ISR 
+  \ It's objective is to toggle leds when buttons are pressed
+  port1 gpio-iv@ dup 
+  button-s1-pressed? if led1-toggle then
+  button-s2-pressed? if led2-toggle then
+  buttons-s1-s2 port1 gpio-clear-interrupt ;
 
 compiletoram
