@@ -299,8 +299,8 @@ $0000 ,  \ 127 DEL
 : led1-toggle ( -- ) Pin0 P1OUT cxor! ;
 : led2-toggle ( -- ) Pin7 P9OUT cxor! ;
 \ gpio interaction routines taken from gpio.c of the examples
-0x00 constant gpio-low-to-high
-0x01 constant gpio-high-to-low
+$00 constant gpio-low-to-high
+$01 constant gpio-high-to-low
 : gpio-digitize-pin-value ( value -- ) 0<> if 1 else 0 then ;
 : gpio-set-as-output-pin ( pins port -- ) 
   2dup ( pins port pins port )
