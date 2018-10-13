@@ -1,18 +1,11 @@
 \ extra routines for my purposes
 compiletoflash
 \ missing functions that I think are really neat
-: cor! ( value address -- ) 
-  swap over ( address value address )
-  c@ ( address value loadedval )
-  or
-  swap c! ;
-: cand! ( value address -- )
-  swap over 
-  c@
-  and
-  swap c! ;
-: cnotand! ( value address -- ) swap not swap cand! ;
 : c@and ( mask address -- v ) c@ and ;
+: c@or ( mask address -- v ) c@ or ;
+: cor! ( value address -- ) tuck c@or swap c! ;
+: cand! ( value address -- ) tuck c@and swap c! ;
+: cnotand! ( value address -- ) swap not swap cand! ;
   
 \ addresses taken from data sheets
 : &pasel0 ( port-base -- addr ) $0a + ;
@@ -303,46 +296,32 @@ $00 constant gpio-low-to-high
 $01 constant gpio-high-to-low
 : gpio-digitize-pin-value ( value -- ) 0<> if 1 else 0 then ;
 : gpio-set-as-output-pin ( pins port -- ) 
-  2dup ( pins port pins port )
-  2dup ( pins port pins port )
-  &pasel0 cnotand!
-  &pasel1 cnotand!
+  2dup &pasel0 cnotand!
+  2dup &pasel1 cnotand!
   &padir cor! ;
 : gpio-set-as-input-pin ( pins port -- )
-  swap ( pins port )
-  2dup ( pins port pins port )
-  2dup ( pins port pins port pins port )
-  2dup ( pins port pins port pins port pins port )
-  &pasel0 cnotand!
-  &pasel1 cnotand!
-  &padir cnotand!
+  2dup &pasel0 cnotand!
+  2dup &pasel1 cnotand!
+  2dup &padir cnotand!
   &paren cnotand! ;
-: gpio-set-output-high-on-pin ( pins port -- ) swap &paout cor! ;
-: gpio-set-output-low-on-pin ( pins port -- ) swap &paout cnotand! ;
-: gpio-toggle-output-on-pin ( pins port -- ) swap &paout cxor! ;
+: gpio-set-output-high-on-pin ( pins port -- ) &paout cor! ;
+: gpio-set-output-low-on-pin ( pins port -- ) &paout cnotand! ;
+: gpio-toggle-output-on-pin ( pins port -- ) &paout cxor! ;
 : gpio-set-as-input-pin-with-pull-down-resistor ( pins port -- ) 
-  2dup 
-  2dup 
-  2dup 
-  2dup 
-  &pasel0 cnotand! 
-  &pasel1 cnotand!
-  &padir  cnotand!
-  &paren  cor!
+  2dup &pasel0 cnotand! 
+  2dup &pasel1 cnotand!
+  2dup &padir  cnotand!
+  2dup &paren  cor!
   &paout  cnotand!
   ;
 : gpio-set-as-input-pin-with-pull-up-resistor ( pins port -- ) 
-  2dup 
-  2dup 
-  2dup 
-  2dup 
-  &pasel0 cnotand! 
-  &pasel1 cnotand!
-  &padir  cnotand!
-  &paren  cor!
+  2dup &pasel0 cnotand! 
+  2dup &pasel1 cnotand!
+  2dup &padir  cnotand!
+  2dup &paren  cor!
   &paout  cor!  ;
 
-: gpio-input-pin@ ( pins port -- v ) &pain c@and gpio-digitize-pin-value ;
+: gpio-input-pin@ ( pins port -- v ) &pain c@and ;
 : gpio-enable-interrupt ( pins port -- ) &paie cor! ;
 : gpio-disable-interrupt ( pins port -- ) &paie cnotand! ;
 : gpio-interrupt-status@ ( pins port -- v ) &paifg c@and ;  
@@ -357,21 +336,18 @@ $01 constant gpio-high-to-low
   	cor! 
   then ;
 \ button s1 is mapped to p1.1
-: configure-button-s1 ( -- )
+pin1 pin2 or constant buttons-s1-s2
   \ taken from the outofbox example for msp430fr6989
-  gpio-high-to-low pin1 port1 gpio-select-interrupt-edge
-  pin1 port1 gpio-set-as-input-pin-with-pull-up-resistor
-  pin1 port1 gpio-clear-interrupt
-  pin1 port1 gpio-enable-interrupt
-  ;
-
-: configure-button-s2 ( -- )
-  \ taken from the outofbox example for msp430fr6989
-  gpio-high-to-low pin2 port1 gpio-select-interrupt-edge
-  pin2 port1 gpio-set-as-input-pin-with-pull-up-resistor
-  pin2 port1 gpio-clear-interrupt
-  pin2 port1 gpio-enable-interrupt
-  ;
-
-
+: configure-button ( edge pins port -- )
+  2dup 2>r
+  gpio-select-interrupt-edge 
+  2r> 
+  2dup gpio-set-as-interrupt-pin-with-pull-up-resistor
+  2dup gpio-clear-interrupt
+  gpio-enable-interrupt ;
+  
+: configure-button-s1 ( -- ) gpio-high-to-low pin1 port1 configure-button ;
+: configure-button-s2 ( -- ) gpio-high-to-low pin2 port1 configure-button ;
+: configure-buttons ( -- ) gpio-high-to-low buttons-s1-s2 port1 configure-button ;
+: buttons-s1-s2@ ( -- v ) buttons-s1-s2 port1 gpio-input-pin@ ;
 compiletoram
