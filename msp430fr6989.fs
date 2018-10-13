@@ -321,7 +321,8 @@ $01 constant gpio-high-to-low
   2dup &paren  cor!
   &paout  cor!  ;
 
-: gpio-input-pin@ ( pins port -- v ) &pain c@and ;
+: gpio-input-pin@ ( port -- v ) &pain c@ ;
+: gpio-iv@ ( port -- v ) &paiv c@ ;
 : gpio-enable-interrupt ( pins port -- ) &paie cor! ;
 : gpio-disable-interrupt ( pins port -- ) &paie cnotand! ;
 : gpio-interrupt-status@ ( pins port -- v ) &paifg c@and ;  
@@ -336,18 +337,22 @@ $01 constant gpio-high-to-low
   	cor! 
   then ;
 \ button s1 is mapped to p1.1
-pin1 pin2 or constant buttons-s1-s2
+pin1 constant button-s1
+pin2 constant button-s2
+button-s1 button-s2 or constant buttons-s1-s2
   \ taken from the outofbox example for msp430fr6989
 : configure-button ( edge pins port -- )
   2dup 2>r
   gpio-select-interrupt-edge 
   2r> 
-  2dup gpio-set-as-interrupt-pin-with-pull-up-resistor
+  2dup gpio-set-as-input-pin-with-pull-up-resistor
   2dup gpio-clear-interrupt
   gpio-enable-interrupt ;
   
 : configure-button-s1 ( -- ) gpio-high-to-low pin1 port1 configure-button ;
 : configure-button-s2 ( -- ) gpio-high-to-low pin2 port1 configure-button ;
 : configure-buttons ( -- ) gpio-high-to-low buttons-s1-s2 port1 configure-button ;
-: buttons-s1-s2@ ( -- v ) buttons-s1-s2 port1 gpio-input-pin@ ;
+: button-s1-pressed? ( -- f ) port1 gpio-iv@ button-s1 and 0<> ;
+: button-s2-pressed? ( -- f ) port1 gpio-iv@ button-s2 and 0<> ;
+
 compiletoram
