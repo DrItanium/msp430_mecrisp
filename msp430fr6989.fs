@@ -12,7 +12,7 @@ compiletoflash
   and
   swap c! ;
 : cnotand! ( value address -- ) swap not swap cand! ;
-
+: c@and ( mask address -- v ) c@ and ;
   
 \ addresses taken from data sheets
 : &pasel0 ( port-base -- addr ) $0a + ;
@@ -39,12 +39,13 @@ $281 constant P10BASE
 compiletoram
 : def-port-regs ( base "constants" -- ) 
   compiletoflash
-  dup &pain constant ( in b )
-  dup &paout constant ( in out b )
-  dup &padir constant ( in out dir b )
-  dup &paren constant ( in out dir ren b )
-  dup &pasel0 constant ( in out dir ren sel0 b )
-  dup &pasel1 constant ( in out dir ren sel0 sel1 b )
+  dup constant \ port-id
+  dup &pain constant 
+  dup &paout constant 
+  dup &padir constant 
+  dup &paren constant 
+  dup &pasel0 constant
+  dup &pasel1 constant
   dup &paiv constant 
   dup &paselc constant 
   dup &paies constant
@@ -52,25 +53,25 @@ compiletoram
   dup &paifg constant 
   compiletoram
   drop ;
-p1base def-port-regs p1in p1out p1dir p1ren p1sel0 p1sel1 p1iv p1selc p1ies p1ie p1ifg
-p2base def-port-regs p2in p2out p2dir p2ren p2sel0 p2sel1 p2iv p2selc p2ies p2ie p2ifg
-p3base def-port-regs p3in p3out p3dir p3ren p3sel0 p3sel1 p3iv p3selc p3ies p3ie p3ifg
-p4base def-port-regs p4in p4out p4dir p4ren p4sel0 p4sel1 p4iv p4selc p4ies p4ie p4ifg
-p5base def-port-regs p5in p5out p5dir p5ren p5sel0 p5sel1 p5iv p5selc p5ies p5ie p5ifg
-p6base def-port-regs p6in p6out p6dir p6ren p6sel0 p6sel1 p6iv p6selc p6ies p6ie p6ifg
-p7base def-port-regs p7in p7out p7dir p7ren p7sel0 p7sel1 p7iv p7selc p7ies p7ie p7ifg
-p8base def-port-regs p8in p8out p8dir p8ren p8sel0 p8sel1 p8iv p8selc p8ies p8ie p8ifg
-p9base def-port-regs p9in p9out p9dir p9ren p9sel0 p9sel1 p9iv p9selc p9ies p9ie p9ifg
-p10base def-port-regs p10in p10out p10dir p10ren p10sel0 p10sel1 p10iv p10selc p10ies p10ie p10ifg
+p1base def-port-regs port1 p1in p1out p1dir p1ren p1sel0 p1sel1 p1iv p1selc p1ies p1ie p1ifg
+p2base def-port-regs port2 p2in p2out p2dir p2ren p2sel0 p2sel1 p2iv p2selc p2ies p2ie p2ifg
+p3base def-port-regs port3 p3in p3out p3dir p3ren p3sel0 p3sel1 p3iv p3selc p3ies p3ie p3ifg
+p4base def-port-regs port4 p4in p4out p4dir p4ren p4sel0 p4sel1 p4iv p4selc p4ies p4ie p4ifg
+p5base def-port-regs port5 p5in p5out p5dir p5ren p5sel0 p5sel1 p5iv p5selc p5ies p5ie p5ifg
+p6base def-port-regs port6 p6in p6out p6dir p6ren p6sel0 p6sel1 p6iv p6selc p6ies p6ie p6ifg
+p7base def-port-regs port7 p7in p7out p7dir p7ren p7sel0 p7sel1 p7iv p7selc p7ies p7ie p7ifg
+p8base def-port-regs port8 p8in p8out p8dir p8ren p8sel0 p8sel1 p8iv p8selc p8ies p8ie p8ifg
+p9base def-port-regs port9 p9in p9out p9dir p9ren p9sel0 p9sel1 p9iv p9selc p9ies p9ie p9ifg
+p10base def-port-regs port10 p10in p10out p10dir p10ren p10sel0 p10sel1 p10iv p10selc p10ies p10ie p10ifg
 compiletoflash
-$80 constant Bit7
-$40 constant Bit6
-$20 constant Bit5
-$10 constant Bit4
-$08 constant Bit3
-$04 constant Bit2
-$02 constant Bit1
-$01 constant Bit0
+$80 constant Pin7
+$40 constant Pin6
+$20 constant Pin5
+$10 constant Pin4
+$08 constant Pin3
+$04 constant Pin2
+$02 constant Pin1
+$01 constant Pin0
 
 
 
@@ -289,29 +290,25 @@ $0000 ,  \ 127 DEL
 
 \ interact with buttons and such
 : bit-set? ( value bit -- f ) and 0<> ;
-: button-s1-pressed? ( -- f ) P1IN c@ Bit1 bit-set? ;
-: button-s2-pressed? ( -- f ) P1IN c@ Bit2 bit-set? ;
+: button-s1-pressed? ( -- f ) P1IN c@ Pin1 bit-set? ;
+: button-s2-pressed? ( -- f ) P1IN c@ Pin2 bit-set? ;
 \ taken from the blinky examples
 : led-init ( -- ) 
-  Bit0 P1DIR cor!
-  Bit7 P9DIR cor! ;
-: led1-toggle ( -- ) Bit0 P1OUT cxor! ;
-: led2-toggle ( -- ) Bit7 P9OUT cxor! ;
-: interrupt-edge! ( addr value edge -- )
-  0= if 
-        not swap cand!
-     else
-        swap cor!
-     then ;
+  Pin0 P1DIR cor!
+  Pin7 P9DIR cor! ;
+: led1-toggle ( -- ) Pin0 P1OUT cxor! ;
+: led2-toggle ( -- ) Pin7 P9OUT cxor! ;
 \ gpio interaction routines taken from gpio.c of the examples
-: set-as-output-pin ( port pins -- ) 
-  swap ( pins port )
+0x00 constant gpio-low-to-high
+0x01 constant gpio-high-to-low
+: gpio-digitize-pin-value ( value -- ) 0<> if 1 else 0 then ;
+: gpio-set-as-output-pin ( pins port -- ) 
   2dup ( pins port pins port )
-  2dup ( pins port pins port pins port )
+  2dup ( pins port pins port )
   &pasel0 cnotand!
   &pasel1 cnotand!
   &padir cor! ;
-: set-as-input-pin ( port pins -- )
+: gpio-set-as-input-pin ( pins port -- )
   swap ( pins port )
   2dup ( pins port pins port )
   2dup ( pins port pins port pins port )
@@ -320,5 +317,61 @@ $0000 ,  \ 127 DEL
   &pasel1 cnotand!
   &padir cnotand!
   &paren cnotand! ;
-	
+: gpio-set-output-high-on-pin ( pins port -- ) swap &paout cor! ;
+: gpio-set-output-low-on-pin ( pins port -- ) swap &paout cnotand! ;
+: gpio-toggle-output-on-pin ( pins port -- ) swap &paout cxor! ;
+: gpio-set-as-input-pin-with-pull-down-resistor ( pins port -- ) 
+  2dup 
+  2dup 
+  2dup 
+  2dup 
+  &pasel0 cnotand! 
+  &pasel1 cnotand!
+  &padir  cnotand!
+  &paren  cor!
+  &paout  cnotand!
+  ;
+: gpio-set-as-input-pin-with-pull-up-resistor ( pins port -- ) 
+  2dup 
+  2dup 
+  2dup 
+  2dup 
+  &pasel0 cnotand! 
+  &pasel1 cnotand!
+  &padir  cnotand!
+  &paren  cor!
+  &paout  cor!  ;
+
+: gpio-input-pin@ ( pins port -- v ) &pain c@and gpio-digitize-pin-value ;
+: gpio-enable-interrupt ( pins port -- ) &paie cor! ;
+: gpio-disable-interrupt ( pins port -- ) &paie cnotand! ;
+: gpio-interrupt-status@ ( pins port -- v ) &paifg c@and ;  
+: gpio-clear-interrupt ( pins port -- ) &paifg cnotand! ;
+: gpio-select-interrupt-edge ( edge pins port -- )
+  &paies ( edge pins port.ies )
+  rot ( pins port.ies edge ) 
+  0= 
+  if \ low to high
+  	cnotand! 
+  else  \ high to low
+  	cor! 
+  then ;
+\ button s1 is mapped to p1.1
+: configure-button-s1 ( -- )
+  \ taken from the outofbox example for msp430fr6989
+  gpio-high-to-low pin1 port1 gpio-select-interrupt-edge
+  pin1 port1 gpio-set-as-input-pin-with-pull-up-resistor
+  pin1 port1 gpio-clear-interrupt
+  pin1 port1 gpio-enable-interrupt
+  ;
+
+: configure-button-s2 ( -- )
+  \ taken from the outofbox example for msp430fr6989
+  gpio-high-to-low pin2 port1 gpio-select-interrupt-edge
+  pin2 port1 gpio-set-as-input-pin-with-pull-up-resistor
+  pin2 port1 gpio-clear-interrupt
+  pin2 port1 gpio-enable-interrupt
+  ;
+
+
 compiletoram
