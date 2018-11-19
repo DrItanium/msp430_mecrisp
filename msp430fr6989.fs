@@ -1,7 +1,8 @@
 \ extra routines for my purposes
 compiletoflash
 \ missing functions that I think are really neat
-  
+: even? ( value -- f ) dup even = ;
+: odd? ( value -- f ) dup even <> ;
 \ addresses taken from data sheets
 : &pasel0 ( port-base -- addr ) $0a + ;
 : &pasel1 ( port-base -- addr ) $0c + ;
