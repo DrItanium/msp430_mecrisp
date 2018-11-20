@@ -457,6 +457,11 @@ $FE constant ConditionRegister
 : stp! ( value -- ) StackPointer register! ;
 : cond@ ( -- value ) ConditionRegister register@ ;
 : cond! ( value -- ) ConditionRegister register! ;
+: 0register! ( offset -- ) 0 swap register! ;
+: 0text! ( value offset -- ) 0 s>d rot text! ;
+: 0data! ( value offset -- ) 0 swap data! ;
+: 0stack! ( value offset -- ) 0 swap stack! ;
+
 
 
 \ todo allocate data structures
@@ -465,23 +470,23 @@ $FE constant ConditionRegister
   true CoreIncrementNext !
   0 CoreIP !
   CoreRegisterCount 0 do
-  0 i register! 
+  i 0register!
   loop
   $2000 0 do
-  0 s>d i text!
-  0 i data!
-  0 i stack!
+  i 0text!
+  i 0data!
+  i 0stack!
   loop
   ;
 : shutdown-core ( -- )
   \ todo zero out memory as we see fit
   CoreRegisterCount 0 do
-  0 i register! 
+  i 0register! 
   loop
   $2000 0 do
-  0 s>d i text!
-  0 i data!
-  0 i stack!
+  i 0text!
+  i 0data!
+  i 0stack!
   loop
 ;
 compiletoram
