@@ -403,33 +403,86 @@ true variable CoreExec
 true variable CoreIncrementNext
 0 variable CoreIP
 256 constant CoreRegisterCount
+2 constant BytesPerWord
+2 constant WordsPerInstruction
+BytesPerWord WordsPerInstruction * constant BytesPerInstruction
 $FFF 1+ constant MemorySize
 \ it seems we have access to the upper ~80kb of memory for storage purposes
 \ MEMORY MAP:
-0 1 2constant CodeStart
-$7FFF s>d CodeStart d+ 2constant CodeEnd
-CodeEnd d1+ 2constant DataStart
+0 1 2constant TextStart
+$7FFF s>d TextStart d+ 2constant TextEnd
+TextEnd d1+ 2constant DataStart
 $3FFF s>d DataStart d+ 2constant DataEnd
 DataEnd d1+ 2constant StackStart
 $3FFF s>d StackStart d+ 2constant StackEnd
+StackEnd d1+ 2constant RegistersStart
+CoreRegisterCount BytesPerWord * s>d RegistersStart d+ 2constant RegistersEnd \ 256 registers at 2 bytes each
+RegistersEnd d1+ 2constant UnusedMemoryStart
+CodeMemoryEnd 2constant UnusedMemoryEnd
+
+CoreRegisterCount 1- constant RegisterMask
+$1FFF constant TextMask \ each instruction is 4 bytes wide so we have 8192 instruction words total
+$1FFF constant DataMask 
+$1FFF constant StackMask 
 : print-hex-double ( d -- ) ." 0x" hex ud. ;
 : print-hex-range ( dend dstart -- ) print-hex-double ." - " print-hex-double ;
 : print-memory-map ( -- )
-  ." Code: " CodeEnd CodeStart print-hex-range cr
+  ." Text: " TextEnd TextStart print-hex-range cr
   ." Data: " DataEnd DataStart print-hex-range cr
   ." Stack: " StackEnd StackStart print-hex-range cr 
-  ." Remaining Space: " CodeMemoryEnd StackEnd d1+ print-hex-range cr 
+  ." Registers: " RegistersEnd RegistersStart print-hex-range cr
+  ." Remaining Space: " UnusedMemoryEnd UnusedMemoryStart print-hex-range cr 
   ;
+
+$FF constant StackPointer
+$FE constant ConditionRegister
+: compute-addr-mask ( value mask num-words -- daddr ) >r and r> lshift s>d ;
+: generic& ( value mask num-words dbase -- daddr ) 
+  2>r ( value mask num-words )
+  >r and r> lshift s>d 
+  2r> d+ ;
+: register& ( offset -- addr ) RegisterMask 1 RegistersStart generic& ; 
+: text& ( offset -- addr ) TextMask WordsPerInstruction TextStart generic& ;
+: data& ( offset -- addr ) DataMask 1 DataStart generic& ;
+: stack& ( offset -- addr ) StackMask 1 StackStart generic& ;
+: register@ ( offset -- value ) register& x@ ;
+: register! ( value offset -- ) register& x! ;
+: text@ ( offset -- d ) text& xx@ ;
+: text! ( d offset -- ) text& xx! ;
+: data@ ( offset -- value ) data& x@ ;
+: data! ( value offset -- ) data& x! ;
+: stack@ ( offset -- value ) stack& x@ ;
+: stack! ( value offset -- ) stack& x! ;
+: stp@ ( -- value ) StackPointer register@ ;
+: stp! ( value -- ) StackPointer register! ;
+: cond@ ( -- value ) ConditionRegister register@ ;
+: cond! ( value -- ) ConditionRegister register! ;
+
 
 \ todo allocate data structures
 : init-core ( -- ) 
   true CoreExec !
   true CoreIncrementNext !
   0 CoreIP !
-  \ todo populate data structures
+  CoreRegisterCount 0 do
+  0 i register! 
+  loop
+  $2000 0 do
+  0 s>d i text!
+  0 i data!
+  0 i stack!
+  loop
   ;
 : shutdown-core ( -- )
   \ todo zero out memory as we see fit
+  CoreRegisterCount 0 do
+  0 i register! 
+  loop
+  $2000 0 do
+  0 s>d i text!
+  0 i data!
+  0 i stack!
+  loop
 ;
 compiletoram
 
