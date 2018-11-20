@@ -417,7 +417,9 @@ $3FFF s>d StackStart d+ 2constant StackEnd
 : print-memory-map ( -- )
   ." Code: " CodeEnd CodeStart print-hex-range cr
   ." Data: " DataEnd DataStart print-hex-range cr
-  ." Stack: " StackEnd StackStart print-hex-range cr ;
+  ." Stack: " StackEnd StackStart print-hex-range cr 
+  ." Remaining Space: " CodeMemoryEnd StackEnd d1+ print-hex-range cr 
+  ;
 
 \ todo allocate data structures
 : init-core ( -- ) 
