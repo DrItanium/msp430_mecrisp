@@ -148,7 +148,7 @@ ConditionRegister defreg! cond!
 ['] mask-stack& ['] stack@ def-print-word-cell print-stack-cell
 : print-register ( address -- ) 
   save-base
-  dup register@ swap RegisterMask and ." Register r" decimal u. ." : 0x" hex. cr 
+  dup register@ swap mask-register-index ." Register r" decimal u. ." : 0x" hex. cr 
   restore-base ;
 : print-text-cell ( address -- )
   save-base
@@ -207,14 +207,14 @@ drop ;
 : ip1+ ( -- ) ip@ 1+ ip! ;
 : push-word ( word -- ) 
   stp@ \ load the stack pointer address
-  1- StackMask and \ decrement and then go next
+  1- mask-stack& \ decrement and then go next
   swap over ( masked-stack value masked-stack )
   stack! \ stash to disk
   stp! ( save back to registers ) ;
 : pop-word ( -- word )
-  stp@ StackMask and dup \ load the sp, mask it, and make a copy
+  stp@ mask-stack& dup \ load the sp, mask it, and make a copy
   stack@ swap \ load from the stack and then switch back to the sp address
-  1+ StackMask and \ increment then mask
+  1+ mask-stack& \ increment then mask
   stp! \ update the stack pointer
   ;
 : load.data ( value dest -- ) swap data@ swap register! ;
