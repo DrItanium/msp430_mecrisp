@@ -214,10 +214,26 @@ $FE constant ConditionRegister
   postpone stash-dest 
   postpone unpack-2src immediate ;
 : 3arg-end ( v -- ) postpone update-dest immediate ;
-: def3arg <builds , does> 
-  3arg-begin rot 
-  @ execute 
-  3arg-end ;
+: 2arg-begin ( s1 d -- r1 )
+  postpone stash-dest
+  postpone register@
+  immediate ;
+: 2arg-end ( s1 -- ) 
+    postpone update-dest 
+    immediate ;
+: def3arg <builds , does> 3arg-begin rot @ execute 3arg-end ;
+: def2arg <builds , does> 2arg-begin swap @ execute 2arg-end ;
+: move ( src dest -- ) swap register@ swap register! ;
+: goto ( value -- ) 
+  $1FFF and CoreIP ! 
+  false CoreIncrementNext !  ;
+: get-next-address ( -- addr )
+  CoreIP @ 1+ $1FFF and ;
+: set  ( value dest -- ) register! ;
+: set4 ( value dest -- ) $f and set ;
+: set8 ( value dest -- ) $ff and set ;
+
+
 ['] +      def3arg addo  ['] +      def3arg addi
 ['] -      def3arg subo  ['] -      def3arg subi
 ['] *      def3arg mulo  ['] *      def3arg muli
@@ -228,6 +244,20 @@ $FE constant ConditionRegister
 ['] and    def3arg ando  ['] and    def3arg andi
 ['] or     def3arg oro   ['] or     def3arg ori
 ['] xor    def3arg xoro  ['] xor    def3arg xori
+['] 1+     def2arg inco  ['] 1+     def2arg inci
+['] 1-     def2arg deco  ['] 1-     def2arg deci
+['] umin   def3arg mino  ['] min    def2arg mini
+['] umax   def3arg maxo  ['] max    def2arg maxi
+['] abs    def2arg absi  
+['] negate def2arg noto  ['] negate def2arg noti 
+['] u<=    def3arg leo   ['] <=     def3arg lei
+['] u>=    def3arg geo   ['] >=     def3arg gei
+['] u<     def3arg lto   ['] <      def3arg lti
+['] u>     def3arg gto   ['] >      def3arg gti
+['] =      def3arg eqo   ['] =      def3arg eqi
+['] <>     def3arg neqo  ['] <>     def3arg neqi
+
+
 
 compiletoram
 
