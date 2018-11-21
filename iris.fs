@@ -14,23 +14,32 @@ $1C00 constant RAMStart
 
 
 \ instruction decoding routines, assume that the double word setup is handled externally
-: 2imm8s ( v -- hi lo ) 
-  dup 
-  upper-half swap 
-  lower-half ;
-: decode-3reg ( d1 -- src2 src1 dest op ) >r 2imm8s r> 2imm8s ;
-: decode-2reg-with-imm ( d1 -- imm8 src1 dest op ) decode-reg3 ;
-: decode-2reg ( d1 -- src1 dest op ) >r lower-half r> 2imm8s ;
-: decode-imm16 ( d1 -- imm16 dest op ) 2imm8s ;
+: 2imm8s ( v -- hi lo ) halve swap ;
+: decode-3reg ( d1 -- src2 src1 dest op ) 
+  swap ( hi lo ) 
+  quarter swap ( src1 src2 dest op )
+  2>r swap ( src2 src1 )
+  2r> ( src2 src1 dest op ) 
+  ;
+: decode-2reg-with-imm ( d1 -- imm8 src1 dest op ) decode-3reg ;
+: decode-2reg ( d1 -- src1 dest op ) 
+  swap ( hi lo )
+  quarter swap ( src1 nil dest op ) 
+  rot drop ( src1 dest op ) 
+  ;
+: decode-imm16 ( d1 -- imm16 dest op ) 
+  swap ( imm16 lo )
+  2imm8s ( imm16 dest op ) 
+  ;
 \ core structure contents
 true variable CoreExec
 true variable CoreIncrementNext
 0 variable CoreIP
+
 256 constant CoreRegisterCount
 2 constant BytesPerWord
 2 constant WordsPerInstruction
 BytesPerWord WordsPerInstruction * constant BytesPerInstruction
-$FFF 1+ constant MemorySize
 \ it seems we have access to the upper ~80kb of memory for storage purposes
 \ MEMORY MAP:
 0 1 2constant TextStart
@@ -44,10 +53,29 @@ CoreRegisterCount BytesPerWord * s>d RegistersStart d+ 2constant RegistersEnd \ 
 RegistersEnd d1+ 2constant UnusedMemoryStart
 CodeMemoryEnd 2constant UnusedMemoryEnd
 
-CoreRegisterCount 1- constant RegisterMask
-$1FFF constant TextMask \ each instruction is 4 bytes wide so we have 8192 instruction words total
-$1FFF constant DataMask 
-$1FFF constant StackMask 
+CoreRegisterCount 1- construct-mask mask-register-index
+$1FFF construct-mask mask-text& 
+$1FFF construct-mask mask-data&
+$1FFF construct-mask mask-stack&
+
+: generate-addr-func ( base-double-address shift-amount mask-func "name" -- )
+  <builds , , , ,
+  does> ( value implied-addr -- )
+  dup cell+ >r \ save a copy of the address
+  @ execute \ mask function called
+  r> dup cell+ >r  \ goto the next cell and stash that to the return stack
+  @ lshift s>d \ shift left by the specified amount then make double number
+  r> dup \ extract the current cell value
+  @ swap \ load the lower half 
+  cell+ @ \ lower the upper half
+  d+ \ combine 
+  ;
+
+RegistersStart 1 ['] mask-register-index generate-addr-func register&
+DataStart 1 ['] mask-data& generate-addr-func data&
+StackStart 1 ['] mask-stack& generate-addr-func stack&
+
+
 : print-hex-double ( d -- ) ." 0x" hex ud. ;
 : print-hex-range ( dend dstart -- ) print-hex-double ." - " print-hex-double ;
 : print-memory-map ( -- )
@@ -58,15 +86,9 @@ $1FFF constant StackMask
   ." Remaining Space: " UnusedMemoryEnd UnusedMemoryStart print-hex-range cr 
   ;
 
-$FF constant StackPointer
-$FE constant ConditionRegister
-: compute-addr-mask ( value mask num-words -- daddr ) >r and r> lshift s>d ;
-: generic& ( value mask num-words dbase -- daddr ) 
-  3>r and r> lshift s>d 
-  2r> d+ ;
-: register& ( offset -- addr ) RegisterMask 1 RegistersStart generic& ; 
-: data& ( offset -- addr ) DataMask 1 DataStart generic& ;
-: stack& ( offset -- addr ) StackMask 1 StackStart generic& ;
+
+
+
 : register@ ( offset -- value ) register& x@ ;
 : register! ( value offset -- ) register& x! ;
 : data@ ( offset -- value ) data& x@ ;
@@ -76,7 +98,7 @@ $FE constant ConditionRegister
 \ text is special, the xx@ and xx! operations do 20 bit saves and restores so 
 \ we have to handle this a little differently
 : text& ( offset -- addr-hi addr-lo ) 
-  TextMask and \ make sure we are looking at the right location
+  mask-text& \ make sure we are looking at the right location
   WordsPerInstruction lshift \ then shift by two positions
   s>d \ convert it to a double number
   TextStart d+ \ add to base offset
@@ -98,38 +120,54 @@ $FE constant ConditionRegister
   ;
 
 
-: stp@ ( -- value ) StackPointer register@ ;
-: stp! ( value -- ) StackPointer register! ;
-: cond@ ( -- value ) ConditionRegister register@ ;
-: cond! ( value -- ) ConditionRegister register! ;
+$FF constant StackPointer
+$FE constant ConditionRegister
+: defreg@ ( loc "name" -- ) <builds , does> ( -- value ) @ register@ ;
+: defreg! ( loc "name" -- ) <builds , does> ( value -- ) @ register! ;
+StackPointer defreg@ stp@ 
+StackPointer defreg! stp!
+ConditionRegister defreg@ cond@
+ConditionRegister defreg! cond!
 : 0register! ( offset -- ) 0 swap register! ;
 : 0text! ( value offset -- ) 0 s>d rot text! ;
 : 0data! ( value offset -- ) 0 swap data! ;
 : 0stack! ( value offset -- ) 0 swap stack! ;
-: iris-text-address ( a -- fa ) TextMask and ;
-: iris-stack-address ( a -- fa ) StackMask and ;
-: iris-data-address ( a -- fa ) DataMask and ;
 
 
-: print-text-cell ( address -- )
-  save-base
-  dup 
-  ." 0x" iris-text-address hex. ." : 0x" text@ hex ud. cr 
-  restore-base ;
-: print-word-cell ( value address -- )
+: def-print-word-cell ( mask-func accessor-func "name" -- )
+  <builds , , 
+  does> ( address -- )
+  2dup ( address internal address internal )
+  cell+ @ execute >r \ perform the masking ahead of time then stash it
+  @ execute r> ( value address ) \ load the value from memory 
   save-base
   ." 0x" hex. ." : 0x" u. cr
   restore-base ;
-: print-data-cell ( address -- ) dup data@ swap iris-data-address print-word-cell ;
-: print-stack-cell ( address -- ) dup stack@ swap iris-stack-address print-word-cell ;
+
+['] mask-data& ['] data@ def-print-word-cell print-data-cell
+['] mask-stack& ['] stack@ def-print-word-cell print-stack-cell
 : print-register ( address -- ) 
   save-base
   dup register@ swap RegisterMask and ." Register r" decimal u. ." : 0x" hex. cr 
   restore-base ;
-: print-text-cell-range ( end start -- ) do i print-text-cell loop ;
-: print-data-cell-range ( end start -- ) do i print-data-cell loop ;
-: print-stack-cell-range ( end start -- ) do i print-stack-cell loop ;
-: print-register-range ( end start -- ) do i print-register loop ;
+: print-text-cell ( address -- )
+  save-base
+  dup 
+  ." 0x" mask-text& hex. ." : 0x" text@ hex ud. cr 
+  restore-base ;
+: def-cell-printer ( func "name" -- )
+<builds , 
+does> ( end start addr -- )
+@ -rot ( func end start )
+do
+i over execute 
+loop 
+drop ;
+
+['] print-text-cell def-cell-printer print-text-cell-range 
+['] print-data-cell def-cell-printer print-data-cell-range 
+['] print-stack-cell def-cell-printer print-stack-cell-range 
+['] print-register def-cell-printer print-register-range 
 : print-registers ( -- ) ." Registers" cr CoreRegisterCount 0 print-register-range ;
 : memdump ( -- ) 
   print-registers cr
@@ -165,7 +203,7 @@ $FE constant ConditionRegister
   loop
 ;
 : ip@ ( -- value ) CoreIP @ ;
-: ip! ( value -- ) TextMask and CoreIP ! ;
+: ip! ( value -- ) mask-text& CoreIP ! ;
 : ip1+ ( -- ) ip@ 1+ ip! ;
 : push-word ( word -- ) 
   stp@ \ load the stack pointer address
@@ -186,23 +224,26 @@ $FE constant ConditionRegister
   store.data ; 
 : stash-dest ( dest -- ) postpone >r immediate ;
 : update-dest ( -- dest ) postpone r> postpone register! immediate ;
-: unpack-2src ( s2 s1 -- r1 r2 ) 
-  postpone register@
-  postpone swap
-  postpone register@ immediate ;
-: 3arg-begin ( s2 s1 d -- r1 r2 )
-  postpone stash-dest 
-  postpone unpack-2src immediate ;
-: 3arg-end ( v -- ) postpone update-dest immediate ;
-: 2arg-begin ( s1 d -- r1 )
-  postpone stash-dest
-  postpone register@
-  immediate ;
-: 2arg-end ( s1 -- ) 
-    postpone update-dest 
-    immediate ;
-: def3arg <builds , does> 3arg-begin rot @ execute 3arg-end ;
-: def2arg <builds , does> 2arg-begin swap @ execute 2arg-end ;
+: def3arg ( operation "name" -- )
+  <builds , 
+  does> ( s2 s1 d addr -- )
+  @ swap ( s2 s1 func d )
+  stash-dest  ( s2 s1 func )
+  -rot ( func s2 s1 )
+  register@ swap register@ ( func r1 r2 )
+  rot ( r1 r2 func )
+  execute ( outcome )
+  update-dest ;
+
+: def2arg ( operation "name" -- )
+  <builds , 
+  does> ( s1 d addr -- )
+  @ swap ( s1 func d )
+  stash-dest ( s1 func )
+  swap register@ swap ( r1 func )
+  execute
+  update-dest ;
+
 : mov.reg ( src dest -- ) swap register@ swap register! ;
 : goto ( value -- ) 
   $1FFF and CoreIP ! 
