@@ -10,6 +10,12 @@ compiletoflash
 : d1- ( d -- d-1 ) 1 s>d d- ;
 : save-base ( -- ) postpone base postpone @ postpone >r immediate ; 
 : restore-base ( -- ) postpone r> postpone base postpone !  immediate ;
+: 3>r ( a b c -- ) 
+  postpone rot ( b c a )
+  postpone >r ( b c )
+  postpone 2>r ( )
+  immediate ;
+
 
 \ addresses taken from data sheets
 : &pasel0 ( port-base -- addr ) $0a + ;
@@ -470,16 +476,17 @@ $FE constant ConditionRegister
   swap  \ put it back into double format 
   ;
 : text! ( d offset -- ) 
-  rot >r \ stash the lower half of the number to the return stack
+  rot
+  >r \ stash the lower half of the number to the return stack
   text& ( upper addr-hi addr-lo ) 
   2>r \ stash the lower address
   x!  \ stash the upper half to memory
-  2r> r> \ restore the lo address followed by lower half of the value
+  2r> 
+  r> \ restore the lo address followed by lower half of the value
   -rot x! \ move lower half to the proper location and store
   ;
 
 
-: text! ( d offset -- ) text& xx! ;
 : stp@ ( -- value ) StackPointer register@ ;
 : stp! ( value -- ) StackPointer register! ;
 : cond@ ( -- value ) ConditionRegister register@ ;
