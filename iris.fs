@@ -8,6 +8,8 @@ compiletoflash
 : upper-half ( value -- h ) $FF00 and 8 rshift ;
 : d1+ ( d -- d+1 ) 1 s>d d+ ;
 : d1- ( d -- d-1 ) 1 s>d d- ;
+: save-base ( -- ) postpone base postpone @ postpone >r immediate ; 
+: restore-base ( -- ) postpone r> postpone base postpone !  immediate ;
 
 \ addresses taken from data sheets
 : &pasel0 ( port-base -- addr ) $0a + ;
@@ -442,17 +444,42 @@ $FE constant ConditionRegister
   >r and r> lshift s>d 
   2r> d+ ;
 : register& ( offset -- addr ) RegisterMask 1 RegistersStart generic& ; 
-: text& ( offset -- addr ) TextMask WordsPerInstruction TextStart generic& ;
 : data& ( offset -- addr ) DataMask 1 DataStart generic& ;
 : stack& ( offset -- addr ) StackMask 1 StackStart generic& ;
 : register@ ( offset -- value ) register& x@ ;
 : register! ( value offset -- ) register& x! ;
-: text@ ( offset -- d ) text& xx@ ;
-: text! ( d offset -- ) text& xx! ;
 : data@ ( offset -- value ) data& x@ ;
 : data! ( value offset -- ) data& x! ;
 : stack@ ( offset -- value ) stack& x@ ;
 : stack! ( value offset -- ) stack& x! ;
+\ text is special, the xx@ and xx! operations do 20 bit saves and restores so 
+\ we have to handle this a little differently
+: text& ( offset -- addr-hi addr-lo ) 
+  TextMask and \ make sure we are looking at the right location
+  WordsPerInstruction lshift \ then shift by two positions
+  s>d \ convert it to a double number
+  TextStart d+ \ add to base offset
+  2dup 2>r     \ now we have the lo address computed so make a copy and stash it
+  BytesPerWord s>d d+ \ compute the hi
+  2r>                 \ restore addr-lo
+  ;
+: text@ ( offset -- d ) 
+  text& ( addr-hi addr-lo )
+  x@ >r \ get the lower half and stash it away
+  x@ r> \ get the upper half and then restore the lower half
+  swap  \ put it back into double format 
+  ;
+: text! ( d offset -- ) 
+  rot >r \ stash the lower half of the number to the return stack
+  text& ( upper addr-hi addr-lo ) 
+  2>r \ stash the lower address
+  x!  \ stash the upper half to memory
+  2r> r> \ restore the lo address followed by lower half of the value
+  -rot x! \ move lower half to the proper location and store
+  ;
+
+
+: text! ( d offset -- ) text& xx! ;
 : stp@ ( -- value ) StackPointer register@ ;
 : stp! ( value -- ) StackPointer register! ;
 : cond@ ( -- value ) ConditionRegister register@ ;
@@ -461,8 +488,38 @@ $FE constant ConditionRegister
 : 0text! ( value offset -- ) 0 s>d rot text! ;
 : 0data! ( value offset -- ) 0 swap data! ;
 : 0stack! ( value offset -- ) 0 swap stack! ;
+: iris-text-address ( a -- fa ) TextMask and ;
+: iris-stack-address ( a -- fa ) StackMask and ;
+: iris-data-address ( a -- fa ) DataMask and ;
 
 
+: print-text-cell ( address -- )
+  save-base
+  dup 
+  ." 0x" iris-text-address hex. ." : 0x" text@ hex ud. cr 
+  restore-base ;
+: print-word-cell ( value address -- )
+  save-base
+  ." 0x" hex. ." : 0x" u. cr
+  restore-base ;
+: print-data-cell ( address -- ) dup data@ swap iris-data-address print-word-cell ;
+: print-stack-cell ( address -- ) dup stack@ swap iris-stack-address print-word-cell ;
+: print-register ( address -- ) 
+  save-base
+  dup register@ swap RegisterMask and ." Register r" decimal u. ." : 0x" hex. cr 
+  restore-base ;
+
+
+  
+: print-registers ( -- )
+  save-base
+  decimal
+  ." Registers" cr
+  CoreRegisterCount 0 do
+    ." Register r" i u. ." : " i register@ hex. cr
+  loop
+  restore-base ;
+  
 
 \ todo allocate data structures
 : init-core ( -- ) 
@@ -489,5 +546,50 @@ $FE constant ConditionRegister
   i 0stack!
   loop
 ;
+: ip@ ( -- value ) CoreIP @ ;
+: ip! ( value -- ) TextMask and CoreIP ! ;
+: ip1+ ( -- ) ip@ 1+ ip! ;
+: push-word ( word -- ) 
+  stp@ \ load the stack pointer address
+  1- StackMask and \ decrement and then go next
+  swap over ( masked-stack value masked-stack )
+  stack! \ stash to disk
+  stp! ( save back to registers ) ;
+: pop-word ( -- word )
+  stp@ StackMask and dup \ load the sp, mask it, and make a copy
+  stack@ swap \ load from the stack and then switch back to the sp address
+  1+ StackMask and \ increment then mask
+  stp! \ update the stack pointer
+  ;
+: load.data ( value dest -- ) swap data@ swap register! ;
+: store.data ( value dest -- ) register@ data! ;
+: move.data ( src dest -- )
+  swap register@ data@ swap ( data-src-contents dest -- )
+  store.data ; 
+: stash-dest ( dest -- ) postpone >r immediate ;
+: update-dest ( -- dest ) postpone r> postpone register! immediate ;
+: unpack-2src ( s2 s1 -- r1 r2 ) 
+  postpone register@
+  postpone swap
+  postpone register@ immediate ;
+: 3arg-begin ( s2 s1 d -- r1 r2 )
+  postpone stash-dest 
+  postpone unpack-2src immediate ;
+: 3arg-end ( v -- ) postpone update-dest immediate ;
+: def3arg <builds , does> 
+  3arg-begin rot 
+  @ execute 
+  3arg-end ;
+['] +      def3arg addo  ['] +      def3arg addi
+['] -      def3arg subo  ['] -      def3arg subi
+['] *      def3arg mulo  ['] *      def3arg muli
+['] /      def3arg divo  ['] /      def3arg divi
+['] mod    def3arg remo  ['] mod    def3arg remi
+['] rshift def3arg shro  ['] rshift def3arg shri
+['] lshift def3arg shlo  ['] lshift def3arg shli
+['] and    def3arg ando  ['] and    def3arg andi
+['] or     def3arg oro   ['] or     def3arg ori
+['] xor    def3arg xoro  ['] xor    def3arg xori
+
 compiletoram
 
