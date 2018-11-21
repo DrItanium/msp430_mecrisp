@@ -223,7 +223,7 @@ $FE constant ConditionRegister
     immediate ;
 : def3arg <builds , does> 3arg-begin rot @ execute 3arg-end ;
 : def2arg <builds , does> 2arg-begin swap @ execute 2arg-end ;
-: move ( src dest -- ) swap register@ swap register! ;
+: mov.reg ( src dest -- ) swap register@ swap register! ;
 : goto ( value -- ) 
   $1FFF and CoreIP ! 
   false CoreIncrementNext !  ;
