@@ -1,7 +1,5 @@
 \ common forth routines that I find very useful
 compiletoflash
-: even? ( value -- f ) dup even = ;
-: odd? ( value -- f ) dup even <> ;
 \ missing functions that I think are really neat
 : even? ( value -- f ) dup even = ;
 : odd? ( value -- f ) dup even <> ;
