@@ -4,12 +4,16 @@ compiletoflash
 : even? ( value -- f ) dup even = ;
 : odd? ( value -- f ) dup even <> ;
 : construct-mask ( mask "name" -- ) <builds , does> ( value addr -- ) @ and ;
+$0001 construct-mask mask-lsbit
+$8000 construct-mask mask-msbit
 $000F construct-mask mask-lowest-int4
 $00F0 construct-mask mask-lower-int4
 $0F00 construct-mask mask-higher-int4
 $F000 construct-mask mask-highest-int4
 $00FF construct-mask mask-lower-half
 $FF00 construct-mask mask-upper-half
+$0FFF construct-mask mask-lower-12
+$FFF0 construct-mask mask-upper-12
 : construct-extractor ( shiftamount maskfunc "name" -- )
   <builds , , 
   does> ( v a-implied -- n )
@@ -23,6 +27,10 @@ $FF00 construct-mask mask-upper-half
 12 ['] mask-highest-int4 construct-extractor highest-int4
 0 ['] mask-lower-half construct-extractor lower-half
 8 ['] mask-upper-half construct-extractor upper-half
+0 ['] mask-lower-12 construct-extractor lower12
+4 ['] mask-upper-12 construct-extractor upper12
+15 ['] mask-msbit construct-extractor get-msbit
+0 ['] mask-lsbit construct-extractor get-lsbit
 
 : halve ( value -- l h ) dup lower-half swap upper-half ;
 : unhalve ( l h -- value ) 

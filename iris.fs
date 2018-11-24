@@ -219,7 +219,7 @@ drop ;
   stp@ \ load the stack pointer address
   1- mask-stack& \ decrement and then go next
   swap over ( masked-stack value masked-stack )
-  stack! \ stash to disk
+  stack! \ stash to stack
   stp! ( save back to registers ) ;
 : pop-word ( -- word )
   stp@ mask-stack& dup \ load the sp, mask it, and make a copy
@@ -227,16 +227,7 @@ drop ;
   1+ mask-stack& \ increment then mask
   stp! \ update the stack pointer
   ;
-: load.data ( value dest -- ) swap data@ swap register! ;
-: store.data ( value dest -- ) register@ data! ;
-: move.data ( src dest -- )
-  swap register@ data@ swap ( data-src-contents dest -- )
-  store.data ; 
 
-: mov.reg ( src dest -- ) swap register@ swap register! ;
-: set  ( value dest -- ) register! ;
-: set4 ( value dest -- ) $f and set ;
-: set8 ( value dest -- ) $ff and set ;
   
 
 
@@ -359,6 +350,28 @@ drop ;
 : callr-if-false ( v -- ) not callr-if-true ;
 : calli-if-false ( v -- ) not calli-if-true ;
 : return-if-false ( -- ) not return-if-true ;
+
+\ memory and register manipulation operations
+  
+: lddat ( addr dest -- ) swap register@ data@ swap register! ;
+: stdat ( value dest -- ) register@ swap register@ swap data! ;
+\ setters and move commands
+: defpartialset ( function "name" -- ) 
+  <builds , 
+  does>
+  swap >r ( value fn )
+  @ execute r> register! ;
+
+['] mask-lowest-int4 defpartialset set4
+['] mask-lower-half defpartialset set8
+['] mask-lower-12 defpartialset set12
+: set16  ( imm dest -- ) register! ;
+: move.reg ( src dest -- ) swap register@ swap register! ;
+
+: 1reg>2reg ( address -- lo hi ) 
+  2* \ make it immediately even by zeroing the contents
+  mask-register-index 
+  dup 1+ ;
 
   
 compiletoram
