@@ -11,6 +11,18 @@ $FF80 constant InterruptVectorsStart
 
 $23FF constant RAMEnd
 $1C00 constant RAMStart
+\ register declarations
+$FF constant StackPointer
+$FE constant ControlRegister0
+$FD constant ControlRegister1
+$FC constant ControlRegister2
+$FB constant ControlRegister3
+$FA constant ControlRegister4
+$F9 constant ControlRegister5
+$F8 constant ControlRegister6
+$F7 constant ControlRegister7
+$F6 constant ConditionRegister
+
 
 
 \ instruction decoding routines, assume that the double word setup is handled externally
@@ -115,8 +127,6 @@ StackStart 1 ['] mask-stack& generate-addr-func stack&
   x! \ move lower half to the proper location and store
   ;
 
-$FF constant StackPointer
-$FE constant ConditionRegister
 : defreg@ ( loc "name" -- ) <builds , does> ( -- value ) @ register@ ;
 : defreg! ( loc "name" -- ) <builds , does> ( value -- ) @ register! ;
 StackPointer defreg@ stp@ 
@@ -222,27 +232,6 @@ drop ;
 : move.data ( src dest -- )
   swap register@ data@ swap ( data-src-contents dest -- )
   store.data ; 
-: stash-dest ( dest -- ) postpone >r immediate ;
-: update-dest ( -- dest ) postpone r> postpone register! immediate ;
-: def3arg ( operation "name" -- )
-  <builds , 
-  does> ( s2 s1 d addr -- )
-  @ swap ( s2 s1 func d )
-  stash-dest  ( s2 s1 func )
-  -rot ( func s2 s1 )
-  register@ swap register@ ( func r1 r2 )
-  rot ( r1 r2 func )
-  execute ( outcome )
-  update-dest ;
-
-: def2arg ( operation "name" -- )
-  <builds , 
-  does> ( s1 d addr -- )
-  @ swap ( s1 func d )
-  stash-dest ( s1 func )
-  swap register@ swap ( r1 func )
-  execute
-  update-dest ;
 
 : mov.reg ( src dest -- ) swap register@ swap register! ;
 : set  ( value dest -- ) register! ;
@@ -251,37 +240,126 @@ drop ;
   
 
 
-['] +      def3arg addo  ['] +      def3arg addi
-['] -      def3arg subo  ['] -      def3arg subi
-['] *      def3arg mulo  ['] *      def3arg muli
-['] /      def3arg divo  ['] /      def3arg divi
-['] mod    def3arg remo  ['] mod    def3arg remi
-['] rshift def3arg shro  ['] rshift def3arg shri
-['] lshift def3arg shlo  ['] lshift def3arg shli
-['] and    def3arg ando  ['] and    def3arg andi
-['] or     def3arg oro   ['] or     def3arg ori
-['] xor    def3arg xoro  ['] xor    def3arg xori
-['] 1+     def2arg inco  ['] 1+     def2arg inci
-['] 1-     def2arg deco  ['] 1-     def2arg deci
-['] umin   def3arg mino  ['] min    def2arg mini
-['] umax   def3arg maxo  ['] max    def2arg maxi
-['] abs    def2arg absi  
-['] negate def2arg noto  ['] negate def2arg noti 
-['] u<=    def3arg leo   ['] <=     def3arg lei
-['] u>=    def3arg geo   ['] >=     def3arg gei
-['] u<     def3arg lto   ['] <      def3arg lti
-['] u>     def3arg gto   ['] >      def3arg gti
-['] =      def3arg eqo   ['] =      def3arg eqi
-['] <>     def3arg neqo  ['] <>     def3arg neqi
+\: stash-dest ( dest -- ) postpone >r immediate ;
+\: update-dest ( -- dest ) postpone r> postpone register! immediate ;
+\: def3arg ( operation "name" -- )
+\  <builds , 
+\  does> ( s2 s1 d addr -- )
+\  @ swap ( s2 s1 func d )
+\  stash-dest  ( s2 s1 func )
+\  -rot ( func s2 s1 )
+\  register@ swap register@ ( func r1 r2 )
+\  rot ( r1 r2 func )
+\  execute ( outcome )
+\  update-dest ;
+\
+\: def2arg ( operation "name" -- )
+\  <builds , 
+\  does> ( s1 d addr -- )
+\  @ swap ( s1 func d )
+\  stash-dest ( s1 func )
+\  swap register@ swap ( r1 func )
+\  execute
+\  update-dest ;
+\ ['] +      def3arg addo  ['] +      def3arg addi
+\ ['] -      def3arg subo  ['] -      def3arg subi
+\ ['] *      def3arg mulo  ['] *      def3arg muli
+\ ['] /      def3arg divo  ['] /      def3arg divi
+\ ['] mod    def3arg remo  ['] mod    def3arg remi
+\ ['] rshift def3arg shro  ['] rshift def3arg shri
+\ ['] lshift def3arg shlo  ['] lshift def3arg shli
+\ ['] and    def3arg ando  ['] and    def3arg andi
+\ ['] or     def3arg oro   ['] or     def3arg ori
+\ ['] xor    def3arg xoro  ['] xor    def3arg xori
+\ ['] 1+     def2arg inco  ['] 1+     def2arg inci
+\ ['] 1-     def2arg deco  ['] 1-     def2arg deci
+\ ['] umin   def3arg mino  ['] min    def2arg mini
+\ ['] umax   def3arg maxo  ['] max    def2arg maxi
+\ ['] abs    def2arg absi  
+\ ['] negate def2arg noto  ['] negate def2arg noti 
+\ ['] u<=    def3arg leo   ['] <=     def3arg lei
+\ ['] u>=    def3arg geo   ['] >=     def3arg gei
+\ ['] u<     def3arg lto   ['] <      def3arg lti
+\ ['] u>     def3arg gto   ['] >      def3arg gti
+\ ['] =      def3arg eqo   ['] =      def3arg eqi
+\ ['] <>     def3arg neqo  ['] <>     def3arg neqi
 
-
+\ branch operations
 : goto ( value -- ) 
-  mask-text& CoreIP ! 
+  mask-text& ip! 
   false CoreIncrementNext !  ;
 : get-next-address ( -- addr )
-  CoreIP @ 1+ mask-text& ;
+  ip@ 1+ mask-text& ;
+: update-link-register ( link -- ) 
+  get-next-address swap register! ;
+: next-address-to-stack ( -- ) get-next-address push-word ;
 : goto-and-link ( value register -- ) 
-  get-next-address swap register! goto ;
+  update-link-register goto ;
+: branch ( register -- ) register@ goto ; 
+: branch-and-link ( dest link -- ) update-link-register branch ;
+: calli ( addr -- ) next-address-to-stack goto ;
+: callr ( register -- ) register@ calli ;
+: return ( -- ) pop-word goto ; 
 
+\ conditional operations
+: unpack-cond ( -- value ) cond@ 0<> ;
+: pack-cond ( value -- ) 0<> cond! ;
+: goto-if-true ( value -- ) 
+  unpack-cond 
+  if 
+    goto 
+  else 
+    drop 
+  then ;
+: goto-if-true-and-link ( v l -- ) 
+  unpack-cond 
+  if 
+     goto-and-link 
+  else 
+     2drop 
+  then ;
+: branch-if-true ( v -- ) 
+  unpack-cond 
+  if 
+    branch 
+  else 
+    drop 
+  then ;
+: branch-if-true-and-link ( v l -- ) 
+  unpack-cond 
+  if 
+    branch-and-link 
+  else 
+    2drop 
+  then ;
+: calli-if-true ( v -- ) 
+  unpack-cond 
+  if 
+    calli 
+  else 
+    drop 
+  then ;
+: callr-if-true ( v -- ) 
+  unpack-cond
+  if 
+    callr 
+  else 
+    drop 
+  then ;
+: return-if-true ( -- ) 
+  unpack-cond
+  if 
+    return 
+  then ;
+
+: goto-if-false ( value -- ) not goto-if-true ;
+: goto-if-false-and-link ( v l -- ) not goto-if-true-and-link ;
+: branch-if-false ( v -- ) not branch-if-true ;
+: branch-if-false-and-link ( v l -- ) not branch-if-true-and-link ;
+: callr-if-false ( v -- ) not callr-if-true ;
+: calli-if-false ( v -- ) not calli-if-true;
+: return-if-false ( -- ) not return-if-false ;
+
+  
 compiletoram
 
