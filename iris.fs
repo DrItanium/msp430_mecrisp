@@ -414,6 +414,14 @@ drop ;
 ['] not    def2immarg notom    ['] not    def2immarg notim
 ['] abs    def2immarg absim
 
+\ execution loop
+: ip1+? ( -- ) CoreIncrementNext @ if ip1+ then ;
+: decode ( instruction -- s2 s1 d op )
+\ TODO implement the decoder routine
+  quarter 
+  false CoreExec ! ;
+
+  
 
 compiletoram
 
