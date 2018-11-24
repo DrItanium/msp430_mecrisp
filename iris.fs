@@ -240,9 +240,9 @@ drop ;
   
 
 
-\: stash-dest ( dest -- ) postpone >r immediate ;
-\: update-dest ( -- dest ) postpone r> postpone register! immediate ;
-\: def3arg ( operation "name" -- )
+\ : stash-dest ( dest -- ) postpone >r immediate ;
+\ : update-dest ( -- dest ) postpone r> postpone register! immediate ;
+\ : def3arg ( operation "name" -- )
 \  <builds , 
 \  does> ( s2 s1 d addr -- )
 \  @ swap ( s2 s1 func d )
@@ -253,7 +253,7 @@ drop ;
 \  execute ( outcome )
 \  update-dest ;
 \
-\: def2arg ( operation "name" -- )
+\ : def2arg ( operation "name" -- )
 \  <builds , 
 \  does> ( s1 d addr -- )
 \  @ swap ( s1 func d )
@@ -357,8 +357,8 @@ drop ;
 : branch-if-false ( v -- ) not branch-if-true ;
 : branch-if-false-and-link ( v l -- ) not branch-if-true-and-link ;
 : callr-if-false ( v -- ) not callr-if-true ;
-: calli-if-false ( v -- ) not calli-if-true;
-: return-if-false ( -- ) not return-if-false ;
+: calli-if-false ( v -- ) not calli-if-true ;
+: return-if-false ( -- ) not return-if-true ;
 
   
 compiletoram
