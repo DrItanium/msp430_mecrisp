@@ -75,7 +75,6 @@ RegistersStart 1 ['] mask-register-index generate-addr-func register&
 DataStart 1 ['] mask-data& generate-addr-func data&
 StackStart 1 ['] mask-stack& generate-addr-func stack&
 
-
 : print-hex-double ( d -- ) ." 0x" hex ud. ;
 : print-hex-range ( dend dstart -- ) print-hex-double ." - " print-hex-double ;
 : print-memory-map ( -- )
@@ -85,9 +84,6 @@ StackStart 1 ['] mask-stack& generate-addr-func stack&
   ." Registers: " RegistersEnd RegistersStart print-hex-range cr
   ." Remaining Space: " UnusedMemoryEnd UnusedMemoryStart print-hex-range cr 
   ;
-
-
-
 
 : register@ ( offset -- value ) register& x@ ;
 : register! ( value offset -- ) register& x! ;
@@ -119,7 +115,6 @@ StackStart 1 ['] mask-stack& generate-addr-func stack&
   x! \ move lower half to the proper location and store
   ;
 
-
 $FF constant StackPointer
 $FE constant ConditionRegister
 : defreg@ ( loc "name" -- ) <builds , does> ( -- value ) @ register@ ;
@@ -132,28 +127,33 @@ ConditionRegister defreg! cond!
 : 0text! ( value offset -- ) 0 s>d rot text! ;
 : 0data! ( value offset -- ) 0 swap data! ;
 : 0stack! ( value offset -- ) 0 swap stack! ;
-
-
+: print-address-field ( addr -- ) ." 0x" hex. ." : " ;
+: print-word-value ( value -- ) ." 0x" hex. ;
+: print-single-word-cell ( value addr -- ) print-address-field print-word-value cr ;
 : def-print-word-cell ( mask-func accessor-func "name" -- )
   <builds , , 
   does> ( address -- )
   2dup ( address internal address internal )
   cell+ @ execute >r \ perform the masking ahead of time then stash it
   @ execute r> ( value address ) \ load the value from memory 
-  save-base
-  ." 0x" hex. ." : 0x" u. cr
-  restore-base ;
+  print-single-word-cell ;
 
 ['] mask-data& ['] data@ def-print-word-cell print-data-cell
 ['] mask-stack& ['] stack@ def-print-word-cell print-stack-cell
 : print-register ( address -- ) 
   save-base
-  dup register@ swap mask-register-index ." Register r" decimal u. ." : 0x" hex. cr 
+  dup register@ 
+  swap 
+  mask-register-index 
+  ." Register r" decimal u. ." :" 
+  print-word-value cr
   restore-base ;
 : print-text-cell ( address -- )
   save-base
   dup 
-  ." 0x" mask-text& hex. ." : 0x" text@ hex ud. cr 
+  mask-text& 
+  print-address-field 
+  text@ ." 0x" hex ud. cr 
   restore-base ;
 : def-cell-printer ( func "name" -- )
 <builds , 
@@ -245,14 +245,10 @@ drop ;
   update-dest ;
 
 : mov.reg ( src dest -- ) swap register@ swap register! ;
-: goto ( value -- ) 
-  $1FFF and CoreIP ! 
-  false CoreIncrementNext !  ;
-: get-next-address ( -- addr )
-  CoreIP @ 1+ $1FFF and ;
 : set  ( value dest -- ) register! ;
 : set4 ( value dest -- ) $f and set ;
 : set8 ( value dest -- ) $ff and set ;
+  
 
 
 ['] +      def3arg addo  ['] +      def3arg addi
@@ -279,6 +275,13 @@ drop ;
 ['] <>     def3arg neqo  ['] <>     def3arg neqi
 
 
+: goto ( value -- ) 
+  mask-text& CoreIP ! 
+  false CoreIncrementNext !  ;
+: get-next-address ( -- addr )
+  CoreIP @ 1+ mask-text& ;
+: goto-and-link ( value register -- ) 
+  get-next-address swap register! goto ;
 
 compiletoram
 
