@@ -212,7 +212,7 @@ drop ;
   i 0stack!
   loop
 ;
-: ip@ ( -- value ) CoreIP @ ;
+: ip@ ( -- value ) CoreIP @ mask-text& ;
 : ip! ( value -- ) mask-text& CoreIP ! ;
 : ip1+ ( -- ) ip@ 1+ ip! ;
 : push-word ( word -- ) 
@@ -286,7 +286,7 @@ drop ;
 
 \ branch operations
 : goto ( value -- ) 
-  mask-text& ip! 
+  ip! 
   false CoreIncrementNext !  ;
 : get-next-address ( -- addr )
   ip@ 1+ mask-text& ;
