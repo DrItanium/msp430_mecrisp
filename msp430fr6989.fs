@@ -133,6 +133,9 @@ button-s1 button-s2 or constant buttons-s1-s2
 : configure-buttons ( -- ) configure-button-s1 configure-button-s2 ;
 : button-s1-pressed? ( ifg -- f ) button-s1-iv = ;
 : button-s2-pressed? ( ifg -- f ) button-s2-iv = ;
+: buttons-pressed@ ( -- mask ) port1 gpio-iv@ ;
+: reset-buttons-isr ( -- ) 
+  buttons-s1-s2 port1 gpio-clear-interrupt ;
 
 \ taken from the lcd examples verbatim
 \ -----------------------------------------------------------------------------
@@ -345,4 +348,6 @@ $0000 ,  \ 127 DEL
 
 :  .lcd ( n -- ) s>d tuck dabs <# # # # # # # rot sign #> typelcd ;
 : u.lcd ( u -- )   0           <# # # # # # #          #> typelcd ;
+
+: l ( -- ) 0 parse typelcd ;
 compiletoram

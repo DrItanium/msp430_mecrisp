@@ -1,8 +1,12 @@
-\ Iris cpu emulation
+\ depends on msp430fr6989.fs
+\ depends on common.fs
 compiletoflash
 
 \ core structure contents
 true variable CoreExec
+: executing? ( -- ) CoreExec @ 0<> ; 
+: halt-execution ( -- ) false CoreExec ! ;
+: resume-execution ( -- ) true CoreExec ! ;
 true variable CoreIncrementNext
 0 variable CoreIP
 
@@ -419,9 +423,37 @@ drop ;
 : decode ( instruction -- s2 s1 d op )
 \ TODO implement the decoder routine
   quarter 
-  false CoreExec ! ;
+  halt-execution ;
 
-  
+\ debugging features
+
+: iris:button-handlers ( -- ) 
+  \ edit this word to 
+  buttons-pressed@ dup
+  button-s1-pressed? 
+  if 
+	 ." Halting Execution" cr
+     halt-execution
+  then
+  if 
+  	 ." Inspecting IP" cr
+	 ip@ u.lcd
+  then
+  reset-buttons-isr ;
+
+: iris:sysinit ( -- )
+  lcd-init
+  led-init
+  configure-buttons
+  led1-off
+  led2-off
+  s" iris" typelcd
+  \ setup the button handlers
+  ['] iris:button-handlers irq-port1 !
+  init-core ;
+: iris:sysdown ( -- )
+  shutdown-core ;
+
 
 compiletoram
 
