@@ -73,22 +73,9 @@ $FF {constseq
 
 \ it seems we have access to the upper ~80kb of memory for storage purposes
 
-: generate-addr-func ( base-double-address shift-amount mask-func "name" -- )
-  <builds , , , ,
-  does> ( value implied-addr -- )
-  dup cell+ >r \ save a copy of the address
-  @ execute \ mask function called
-  r> dup cell+ >r  \ goto the next cell and stash that to the return stack
-  @ lshift s>d \ shift left by the specified amount then make double number
-  r> dup \ extract the current cell value
-  @ swap \ load the lower half 
-  cell+ @ \ lower the upper half
-  d+ \ combine 
-  ;
-
-RegistersStart 1 ['] mask-register-index generate-addr-func register&
-DataStart 1 ['] mask-data& generate-addr-func data&
-StackStart 1 ['] mask-stack& generate-addr-func stack&
+: register& ( value -- d ) mask-register-index 2* s>d RegistersStart d+ ;
+: data& ( value -- d ) mask-data& 2* s>d DataStart d+ ;
+: stack& ( value -- d ) mask-stack& 2* s>d StackStart d+ ;
 
 : print-hex-double ( d -- ) ." 0x" hex ud. ;
 : print-hex-range ( dend dstart -- ) print-hex-double ." - " print-hex-double ;

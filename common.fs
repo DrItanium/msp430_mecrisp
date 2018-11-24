@@ -42,9 +42,8 @@ $FFF0 construct-mask mask-upper-12
   r> halve ( llo lhi hlo hhi ) 
   ;
 : unquarter ( llo lhi hlo hhi -- d )
-  unhalve >r ( llo lhi )
-  unhalve r> ( lo hi ) 
-  ;
+  unhalve ( llo lhi h )
+  -rot unhalve swap ;
 
 : d1+ ( d -- d+1 ) 1 s>d d+ ;
 : d1- ( d -- d-1 ) 1 s>d d- ;
