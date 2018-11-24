@@ -1,8 +1,11 @@
 \ Iris cpu emulation
-\ extra routines for my purposes
 compiletoflash
-\ constants for the MSP430FR6989 taken from the data sheet
-\ end address is inclusive
+
+\ core structure contents
+true variable CoreExec
+true variable CoreIncrementNext
+0 variable CoreIP
+
 $3FFF $2 2constant CodeMemoryEnd
 $4400 $0 2constant CodeMemoryStart
 
@@ -11,19 +14,43 @@ $FF80 constant InterruptVectorsStart
 
 $23FF constant RAMEnd
 $1C00 constant RAMStart
+
+256 constant CoreRegisterCount
+2 constant BytesPerWord
+2 constant WordsPerInstruction
+
+BytesPerWord WordsPerInstruction * constant BytesPerInstruction
+
+\ MEMORY MAP:
+0 1 2constant TextStart
+$7FFF s>d TextStart d+ 2constant TextEnd
+TextEnd d1+ 2constant DataStart
+$3FFF s>d DataStart d+ 2constant DataEnd
+DataEnd d1+ 2constant StackStart
+$3FFF s>d StackStart d+ 2constant StackEnd
+StackEnd d1+ 2constant RegistersStart
+CoreRegisterCount BytesPerWord * s>d RegistersStart d+ 2constant RegistersEnd \ 256 registers at 2 bytes each
+RegistersEnd d1+ 2constant UnusedMemoryStart
+CodeMemoryEnd 2constant UnusedMemoryEnd
+
+CoreRegisterCount 1- construct-mask mask-register-index
+$1FFF construct-mask mask-text& 
+$1FFF construct-mask mask-data&
+$1FFF construct-mask mask-stack&
+
 \ register declarations
-$FF constant StackPointer
-$FE constant ControlRegister0
-$FD constant ControlRegister1
-$FC constant ControlRegister2
-$FB constant ControlRegister3
-$FA constant ControlRegister4
-$F9 constant ControlRegister5
-$F8 constant ControlRegister6
-$F7 constant ControlRegister7
-$F6 constant ConditionRegister
-
-
+$FF {constseq 
+		constseq1-: StackPointer
+		constseq1-: ControlRegister0
+		constseq1-: ControlRegister1
+		constseq1-: ControlRegister2
+		constseq1-: ControlRegister3
+		constseq1-: ControlRegister4
+		constseq1-: ControlRegister5
+		constseq1-: ControlRegister6
+		constseq1-: ControlRegister7
+		constseq1-: ConditionRegister
+	constseq}
 
 \ instruction decoding routines, assume that the double word setup is handled externally
 : 2imm8s ( v -- hi lo ) halve swap ;
@@ -43,32 +70,8 @@ $F6 constant ConditionRegister
   swap ( imm16 lo )
   2imm8s ( imm16 dest op ) 
   ;
-\ core structure contents
-true variable CoreExec
-true variable CoreIncrementNext
-0 variable CoreIP
 
-256 constant CoreRegisterCount
-2 constant BytesPerWord
-2 constant WordsPerInstruction
-BytesPerWord WordsPerInstruction * constant BytesPerInstruction
 \ it seems we have access to the upper ~80kb of memory for storage purposes
-\ MEMORY MAP:
-0 1 2constant TextStart
-$7FFF s>d TextStart d+ 2constant TextEnd
-TextEnd d1+ 2constant DataStart
-$3FFF s>d DataStart d+ 2constant DataEnd
-DataEnd d1+ 2constant StackStart
-$3FFF s>d StackStart d+ 2constant StackEnd
-StackEnd d1+ 2constant RegistersStart
-CoreRegisterCount BytesPerWord * s>d RegistersStart d+ 2constant RegistersEnd \ 256 registers at 2 bytes each
-RegistersEnd d1+ 2constant UnusedMemoryStart
-CodeMemoryEnd 2constant UnusedMemoryEnd
-
-CoreRegisterCount 1- construct-mask mask-register-index
-$1FFF construct-mask mask-text& 
-$1FFF construct-mask mask-data&
-$1FFF construct-mask mask-stack&
 
 : generate-addr-func ( base-double-address shift-amount mask-func "name" -- )
   <builds , , , ,
@@ -231,19 +234,6 @@ drop ;
   
 
 
-\ : stash-dest ( dest -- ) postpone >r immediate ;
-\ : update-dest ( -- dest ) postpone r> postpone register! immediate ;
-\ : def3arg ( operation "name" -- )
-\  <builds , 
-\  does> ( s2 s1 d addr -- )
-\  @ swap ( s2 s1 func d )
-\  stash-dest  ( s2 s1 func )
-\  -rot ( func s2 s1 )
-\  register@ swap register@ ( func r1 r2 )
-\  rot ( r1 r2 func )
-\  execute ( outcome )
-\  update-dest ;
-\
 \ : def2arg ( operation "name" -- )
 \  <builds , 
 \  does> ( s1 d addr -- )
@@ -252,28 +242,6 @@ drop ;
 \  swap register@ swap ( r1 func )
 \  execute
 \  update-dest ;
-\ ['] +      def3arg addo  ['] +      def3arg addi
-\ ['] -      def3arg subo  ['] -      def3arg subi
-\ ['] *      def3arg mulo  ['] *      def3arg muli
-\ ['] /      def3arg divo  ['] /      def3arg divi
-\ ['] mod    def3arg remo  ['] mod    def3arg remi
-\ ['] rshift def3arg shro  ['] rshift def3arg shri
-\ ['] lshift def3arg shlo  ['] lshift def3arg shli
-\ ['] and    def3arg ando  ['] and    def3arg andi
-\ ['] or     def3arg oro   ['] or     def3arg ori
-\ ['] xor    def3arg xoro  ['] xor    def3arg xori
-\ ['] 1+     def2arg inco  ['] 1+     def2arg inci
-\ ['] 1-     def2arg deco  ['] 1-     def2arg deci
-\ ['] umin   def3arg mino  ['] min    def2arg mini
-\ ['] umax   def3arg maxo  ['] max    def2arg maxi
-\ ['] abs    def2arg absi  
-\ ['] negate def2arg noto  ['] negate def2arg noti 
-\ ['] u<=    def3arg leo   ['] <=     def3arg lei
-\ ['] u>=    def3arg geo   ['] >=     def3arg gei
-\ ['] u<     def3arg lto   ['] <      def3arg lti
-\ ['] u>     def3arg gto   ['] >      def3arg gti
-\ ['] =      def3arg eqo   ['] =      def3arg eqi
-\ ['] <>     def3arg neqo  ['] <>     def3arg neqi
 
 \ branch operations
 : goto ( value -- ) 
@@ -372,7 +340,93 @@ drop ;
   2* \ make it immediately even by zeroing the contents
   mask-register-index 
   dup 1+ ;
+\ comparison operations, implied conditional operator is destination
+: defcompareop ( operator "name" -- )
+  <builds , 
+  does> ( a2 a1 -- )
+  -rot ( addr a2 a1 )
+  register@ swap register@ ( addr r1 r2 )
+  rot @ execute ( outcome ) 
+  pack-cond ;
 
-  
+['] = defcompareop eqo   ['] = defcompareop eqi
+['] <> defcompareop neqo ['] <> defcompareop neqi
+['] u<= defcompareop leo ['] <= defcompareop lei
+['] u>= defcompareop geo ['] >= defcompareop gei
+['] u<  defcompareop lto ['] <  defcompareop lti
+['] u>  defcompareop gto ['] >  defcompareop gti
+
+\ arithmetic operators
+: defarithop ( op "name" -- )
+  <builds , 
+  does> ( r2 r1 dest addr -- )
+  swap >r -rot 
+  register@ swap register@ 
+  rot @ execute 
+  r> register! ;
+: defarithimmop ( op "name" -- )
+  <builds , 
+  does> ( imm8 r1 dest addr -- )
+  swap >r -rot ( addr imm8 r1 )
+  register@ swap ( addr v1 imm8 )
+  rot @ execute 
+  r> register! ;
+
+['] +      defarithop addo  ['] +      defarithop addi
+['] -      defarithop subo  ['] -      defarithop subi
+['] *      defarithop mulo  ['] *      defarithop muli
+['] /      defarithop divo  ['] /      defarithop divi
+['] mod    defarithop remo  ['] mod    defarithop remi
+['] rshift defarithop shro  ['] rshift defarithop shri
+['] lshift defarithop shlo  ['] lshift defarithop shli
+['] and    defarithop ando  ['] and    defarithop andi
+['] or     defarithop oro   ['] or     defarithop ori
+['] xor    defarithop xoro  ['] xor    defarithop xori
+['] umin   defarithop mino  ['] min    defarithop mini
+['] umax   defarithop maxo  ['] max    defarithop maxi
+
+['] +      defarithimmop addom  ['] +      defarithimmop addim
+['] -      defarithimmop subom  ['] -      defarithimmop subim
+['] *      defarithimmop mulom  ['] *      defarithimmop mulim
+['] /      defarithimmop divom  ['] /      defarithimmop divim
+['] mod    defarithimmop remom  ['] mod    defarithimmop remim
+['] rshift defarithimmop shrom  ['] rshift defarithimmop shrim
+['] lshift defarithimmop shlom  ['] lshift defarithimmop shlim
+['] and    defarithimmop andom  ['] and    defarithimmop andim
+['] or     defarithimmop orom   ['] or     defarithimmop orim
+['] xor    defarithimmop xorom  ['] xor    defarithimmop xorim
+['] umin   defarithimmop minom  ['] min    defarithimmop minim
+['] umax   defarithimmop maxom  ['] max    defarithimmop maxim
+
+\ two argument operations
+: def2arg ( op "name" -- )
+  <builds , 
+  does> ( src dest addr -- )
+  rot ( dest addr src )
+  register@  swap ( dest contents addr )
+  @ execute ( dest value )
+  swap register! ;
+
+: def2immarg ( op "name" -- )
+  <builds ,
+  does> ( imm dest addr -- )
+  swap >r ( imm addr ) 
+  @ execute ( result )
+  r> ( result dest )
+  register! ;
+
+['] 1+     def2arg inco    ['] 1+     def2arg inci
+['] 1-     def2arg deco    ['] 1-     def2arg deci
+['] negate def2arg inverto ['] negate def2arg inverti 
+['] not    def2arg noto    ['] not    def2arg noti
+['] abs    def2arg absi
+
+['] 1+     def2immarg incom    ['] 1+     def2arg incim
+['] 1-     def2immarg decom    ['] 1-     def2arg decim
+['] negate def2immarg invertom ['] negate def2arg invertim
+['] not    def2immarg notom    ['] not    def2immarg notim
+['] abs    def2immarg absim
+
+
 compiletoram
 

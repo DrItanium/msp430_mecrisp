@@ -71,4 +71,13 @@ $FFF0 construct-mask mask-upper-12
   postpone r>  ( b c a )
   postpone -rot 
   immediate ;
+
+\ Used to make generation of enumerations much more readable 
+\ and easy to rearrange
+: {constseq ( start -- start ) ;
+: constseq1+: ( n -- n+1 ) dup constant 1+ ;
+: constseq1-: ( n -- n-1 ) dup constant 1- ;
+: constseq+: ( n inc -- n+inc ) over constant + ;
+: constseq-: ( n dec -- n-inc ) over constant - ;
+: constseq} ( n -- ) drop ;
 compiletoram
