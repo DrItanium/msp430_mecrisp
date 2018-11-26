@@ -476,6 +476,7 @@ ConditionRegister iris:defreg! cond!
   s" iris" typelcd
   \ setup the button handlers
   ['] iris:button-handlers irq-port1 !
+  eint
   iris:init-core ;
 : iris:sysdown ( -- )
   iris:shutdown-core ;
