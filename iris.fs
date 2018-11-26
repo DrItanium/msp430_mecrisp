@@ -180,7 +180,7 @@ ConditionRegister iris:defreg! cond!
   ." Stack Memory" cr $2000 0 print-stack-cell-range cr 
   ;
 
-: init-core ( -- ) 
+: iris:init-core ( -- ) 
   true CoreExec !
   true CoreIncrementNext !
   0 CoreIP !
@@ -195,7 +195,7 @@ ConditionRegister iris:defreg! cond!
   i 0stack!
   loop
   ;
-: shutdown-core ( -- )
+: iris:shutdown-core ( -- )
   \ todo zero out memory as we see fit
   CoreRegisterCount 0 do
   i 0register! 
@@ -209,6 +209,7 @@ ConditionRegister iris:defreg! cond!
 : ip@ ( -- value ) CoreIP @ mask-text& ;
 : ip! ( value -- ) mask-text& CoreIP ! ;
 : ip1+ ( -- ) ip@ 1+ ip! ;
+: ip1+? ( -- ) CoreIncrementNext @ if ip1+ then ;
 : push-word ( word -- ) 
   stp@ \ load the stack pointer address
   1- mask-stack& \ decrement and then go next
@@ -444,8 +445,7 @@ ConditionRegister iris:defreg! cond!
 ['] abs    iris:def2immarg absim
 
 \ execution loop
-: ip1+? ( -- ) CoreIncrementNext @ if ip1+ then ;
-: decode ( instruction -- s2 s1 d op )
+: iris:decode ( instruction -- s2 s1 d op )
 \ TODO implement the decoder routine
   quarter 
   halt-execution ;
@@ -460,6 +460,7 @@ ConditionRegister iris:defreg! cond!
 	 ." Halting Execution" cr
      halt-execution
   then
+  button-s2-pressed?
   if 
   	 ." Inspecting IP" cr
 	 ip@ u.lcd
@@ -475,9 +476,9 @@ ConditionRegister iris:defreg! cond!
   s" iris" typelcd
   \ setup the button handlers
   ['] iris:button-handlers irq-port1 !
-  init-core ;
+  iris:init-core ;
 : iris:sysdown ( -- )
-  shutdown-core ;
+  iris:shutdown-core ;
 
 
 compiletoram
