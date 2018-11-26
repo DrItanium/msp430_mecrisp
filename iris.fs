@@ -121,12 +121,12 @@ $FF {constseq
   x! \ move lower half to the proper location and store
   ;
 
-: defreg@ ( loc "name" -- ) <builds , does> ( -- value ) @ register@ ;
-: defreg! ( loc "name" -- ) <builds , does> ( value -- ) @ register! ;
-StackPointer defreg@ stp@ 
-StackPointer defreg! stp!
-ConditionRegister defreg@ cond@
-ConditionRegister defreg! cond!
+: iris:defreg@ ( loc "name" -- ) <builds , does> ( -- value ) @ register@ ;
+: iris:defreg! ( loc "name" -- ) <builds , does> ( value -- ) @ register! ;
+StackPointer iris:defreg@ stp@ 
+StackPointer iris:defreg! stp!
+ConditionRegister iris:defreg@ cond@
+ConditionRegister iris:defreg! cond!
 : 0register! ( offset -- ) 0 swap register! ;
 : 0text! ( value offset -- ) 0 s>d rot text! ;
 : 0data! ( value offset -- ) 0 swap data! ;
@@ -160,13 +160,13 @@ ConditionRegister defreg! cond!
   text@ ." 0x" hex ud. cr 
   restore-base ;
 : def-cell-printer ( func "name" -- )
-<builds , 
-does> ( end start addr -- )
-@ -rot ( func end start )
-do
-i over execute 
-loop 
-drop ;
+  <builds , 
+  does> ( end start addr -- )
+  @ -rot ( func end start )
+  do
+  i over execute 
+  loop 
+  drop ;
 
 ['] print-text-cell def-cell-printer print-text-cell-range 
 ['] print-data-cell def-cell-printer print-data-cell-range 
@@ -205,7 +205,7 @@ drop ;
   i 0data!
   i 0stack!
   loop
-;
+  ;
 : ip@ ( -- value ) CoreIP @ mask-text& ;
 : ip! ( value -- ) mask-text& CoreIP ! ;
 : ip1+ ( -- ) ip@ 1+ ip! ;
@@ -221,19 +221,7 @@ drop ;
   1+ mask-stack& \ increment then mask
   stp! \ update the stack pointer
   ;
-
-  
-
-
-\ : def2arg ( operation "name" -- )
-\  <builds , 
-\  does> ( s1 d addr -- )
-\  @ swap ( s1 func d )
-\  stash-dest ( s1 func )
-\  swap register@ swap ( r1 func )
-\  execute
-\  update-dest ;
-
+\ operations!
 \ branch operations
 : goto ( value -- ) 
   ip! 
@@ -332,7 +320,7 @@ drop ;
   mask-register-index 
   dup 1+ ;
 \ comparison operations, implied conditional operator is destination
-: defcompareop ( operator "name" -- )
+: iris:defcompareop ( operator "name" -- )
   <builds , 
   does> ( a2 a1 -- )
   -rot ( addr a2 a1 )
@@ -340,22 +328,28 @@ drop ;
   rot @ execute ( outcome ) 
   pack-cond ;
 
-['] = defcompareop eqo   ['] = defcompareop eqi
-['] <> defcompareop neqo ['] <> defcompareop neqi
-['] u<= defcompareop leo ['] <= defcompareop lei
-['] u>= defcompareop geo ['] >= defcompareop gei
-['] u<  defcompareop lto ['] <  defcompareop lti
-['] u>  defcompareop gto ['] >  defcompareop gti
+['] =   iris:defcompareop eqo   
+['] =   iris:defcompareop eqi
+['] <>  iris:defcompareop neqo 
+['] <>  iris:defcompareop neqi
+['] u<= iris:defcompareop leo 
+['] <=  iris:defcompareop lei
+['] u>= iris:defcompareop geo 
+['] >=  iris:defcompareop gei
+['] u<  iris:defcompareop lto 
+['] <   iris:defcompareop lti
+['] u>  iris:defcompareop gto 
+['] >   iris:defcompareop gti
 
 \ arithmetic operators
-: defarithop ( op "name" -- )
+: iris:defarithop ( op "name" -- )
   <builds , 
   does> ( r2 r1 dest addr -- )
   swap >r -rot 
   register@ swap register@ 
   rot @ execute 
   r> register! ;
-: defarithimmop ( op "name" -- )
+: iris:defarithimmop ( op "name" -- )
   <builds , 
   does> ( imm8 r1 dest addr -- )
   swap >r -rot ( addr imm8 r1 )
@@ -363,34 +357,58 @@ drop ;
   rot @ execute 
   r> register! ;
 
-['] +      defarithop addo  ['] +      defarithop addi
-['] -      defarithop subo  ['] -      defarithop subi
-['] *      defarithop mulo  ['] *      defarithop muli
-['] /      defarithop divo  ['] /      defarithop divi
-['] mod    defarithop remo  ['] mod    defarithop remi
-['] rshift defarithop shro  ['] rshift defarithop shri
-['] lshift defarithop shlo  ['] lshift defarithop shli
-['] and    defarithop ando  ['] and    defarithop andi
-['] or     defarithop oro   ['] or     defarithop ori
-['] xor    defarithop xoro  ['] xor    defarithop xori
-['] umin   defarithop mino  ['] min    defarithop mini
-['] umax   defarithop maxo  ['] max    defarithop maxi
+['] +      iris:defarithop addo  
+['] +      iris:defarithop addi
+['] -      iris:defarithop subo  
+['] -      iris:defarithop subi
+['] *      iris:defarithop mulo  
+['] *      iris:defarithop muli
+['] /      iris:defarithop divo  
+['] /      iris:defarithop divi
+['] mod    iris:defarithop remo  
+['] mod    iris:defarithop remi
+['] rshift iris:defarithop shro  
+['] rshift iris:defarithop shri
+['] lshift iris:defarithop shlo  
+['] lshift iris:defarithop shli
+['] and    iris:defarithop ando  
+['] and    iris:defarithop andi
+['] or     iris:defarithop oro   
+['] or     iris:defarithop ori
+['] xor    iris:defarithop xoro  
+['] xor    iris:defarithop xori
+['] umin   iris:defarithop mino  
+['] min    iris:defarithop mini
+['] umax   iris:defarithop maxo  
+['] max    iris:defarithop maxi
 
-['] +      defarithimmop addom  ['] +      defarithimmop addim
-['] -      defarithimmop subom  ['] -      defarithimmop subim
-['] *      defarithimmop mulom  ['] *      defarithimmop mulim
-['] /      defarithimmop divom  ['] /      defarithimmop divim
-['] mod    defarithimmop remom  ['] mod    defarithimmop remim
-['] rshift defarithimmop shrom  ['] rshift defarithimmop shrim
-['] lshift defarithimmop shlom  ['] lshift defarithimmop shlim
-['] and    defarithimmop andom  ['] and    defarithimmop andim
-['] or     defarithimmop orom   ['] or     defarithimmop orim
-['] xor    defarithimmop xorom  ['] xor    defarithimmop xorim
-['] umin   defarithimmop minom  ['] min    defarithimmop minim
-['] umax   defarithimmop maxom  ['] max    defarithimmop maxim
+['] +      iris:defarithimmop addom  
+['] +      iris:defarithimmop addim
+['] -      iris:defarithimmop subom  
+['] -      iris:defarithimmop subim
+['] *      iris:defarithimmop mulom  
+['] *      iris:defarithimmop mulim
+['] /      iris:defarithimmop divom  
+['] /      iris:defarithimmop divim
+['] mod    iris:defarithimmop remom  
+['] mod    iris:defarithimmop remim
+['] rshift iris:defarithimmop shrom  
+['] rshift iris:defarithimmop shrim
+['] lshift iris:defarithimmop shlom  
+['] lshift iris:defarithimmop shlim
+['] and    iris:defarithimmop andom  
+['] and    iris:defarithimmop andim
+['] or     iris:defarithimmop orom   
+['] or     iris:defarithimmop orim
+['] xor    iris:defarithimmop xorom  
+['] xor    iris:defarithimmop xorim
+['] umin   iris:defarithimmop minom  
+['] min    iris:defarithimmop minim
+['] umax   iris:defarithimmop maxom  
+['] max    iris:defarithimmop maxim
 
 \ two argument operations
-: def2arg ( op "name" -- )
+: iris:def2arg ( op "name" -- )
   <builds , 
   does> ( src dest addr -- )
   rot ( dest addr src )
@@ -398,7 +416,7 @@ drop ;
   @ execute ( dest value )
   swap register! ;
 
-: def2immarg ( op "name" -- )
+: iris:def2immarg ( op "name" -- )
   <builds ,
   does> ( imm dest addr -- )
   swap >r ( imm addr ) 
@@ -406,17 +424,24 @@ drop ;
   r> ( result dest )
   register! ;
 
-['] 1+     def2arg inco    ['] 1+     def2arg inci
-['] 1-     def2arg deco    ['] 1-     def2arg deci
-['] negate def2arg inverto ['] negate def2arg inverti 
-['] not    def2arg noto    ['] not    def2arg noti
-['] abs    def2arg absi
-
-['] 1+     def2immarg incom    ['] 1+     def2arg incim
-['] 1-     def2immarg decom    ['] 1-     def2arg decim
-['] negate def2immarg invertom ['] negate def2arg invertim
-['] not    def2immarg notom    ['] not    def2immarg notim
-['] abs    def2immarg absim
+['] 1+     iris:def2arg inco    
+['] 1+     iris:def2arg inci
+['] 1-     iris:def2arg deco    
+['] 1-     iris:def2arg deci
+['] negate iris:def2arg inverto 
+['] negate iris:def2arg inverti 
+['] not    iris:def2arg noto    
+['] not    iris:def2arg noti
+['] abs    iris:def2arg absi
+['] 1+     iris:def2immarg incom    
+['] 1+     iris:def2arg incim
+['] 1-     iris:def2immarg decom    
+['] 1-     iris:def2arg decim
+['] negate iris:def2immarg invertom 
+['] negate iris:def2arg invertim
+['] not    iris:def2immarg notom    
+['] not    iris:def2immarg notim
+['] abs    iris:def2immarg absim
 
 \ execution loop
 : ip1+? ( -- ) CoreIncrementNext @ if ip1+ then ;
