@@ -84,6 +84,7 @@ false variable Debugging
 : debug? ( -- f ) Debugging @ 0<> ;
 : yes-debug ( -- ) true Debugging ! ;
 : no-debug ( -- ) false Debugging ! ;
+: toggle-debug ( -- ) Debugging @ not Debugging ! ;
 
 : debug[ ( -- ) \ start code body to fire if debugging active
   postpone debug?
