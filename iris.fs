@@ -1,5 +1,6 @@
 \ depends on msp430fr6989.fs
 \ depends on common.fs
+\ depends on iris_opcodes.fs
 compiletoflash
 
 \ core structure contents
@@ -506,6 +507,7 @@ ConditionRegister iris:defreg! cond!
     executing? not
   until
   ;
+
 
 compiletoram
 
