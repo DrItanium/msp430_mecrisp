@@ -431,30 +431,45 @@ ConditionRegister iris:defreg! cond!
   r> ( result dest )
   register! ;
 
-['] 1+     iris:def2arg inco    
-['] 1+     iris:def2arg inci
-['] 1-     iris:def2arg deco    
-['] 1-     iris:def2arg deci
-['] negate iris:def2arg inverto 
-['] negate iris:def2arg inverti 
-['] not    iris:def2arg noto    
-['] not    iris:def2arg noti
-['] abs    iris:def2arg absi
-['] 1+     iris:def2immarg incom    
-['] 1+     iris:def2arg incim
-['] 1-     iris:def2immarg decom    
-['] 1-     iris:def2arg decim
-['] negate iris:def2immarg invertom 
-['] negate iris:def2arg invertim
-['] not    iris:def2immarg notom    
-['] not    iris:def2immarg notim
-['] abs    iris:def2immarg absim
+['] 1+     iris:def2arg op:inco    
+['] 1+     iris:def2arg op:inci
+['] 1-     iris:def2arg op:deco    
+['] 1-     iris:def2arg op:deci
+['] negate iris:def2arg op:inverto 
+['] negate iris:def2arg op:inverti 
+['] not    iris:def2arg op:noto    
+['] not    iris:def2arg op:noti
+['] abs    iris:def2arg op:absi
+['] 1+     iris:def2immarg op:incom    
+['] 1+     iris:def2arg op:incim
+['] 1-     iris:def2immarg op:decom    
+['] 1-     iris:def2arg op:decim
+['] negate iris:def2immarg op:invertom 
+['] negate iris:def2arg op:invertim
+['] not    iris:def2immarg op:notom    
+['] not    iris:def2immarg op:notim
+['] abs    iris:def2immarg op:absim
 
 : op:illegal ( s2 s1 dest -- )
   halt-execution
   ." Illegal Instruction" cr
   ip@ u.lcd
   ;
+
+create iris:dispatch-table
+['] op:illegal ,
+['] op:addi , ['] op:addo ,
+['] op:subi , ['] op:subo ,
+['] op:muli , ['] op:mulo ,
+['] op:divi , ['] op:divo ,
+['] op:remi , ['] op:remo ,
+['] op:shli , ['] op:shlo ,
+['] op:shri , ['] op:shro ,
+['] op:andi , ['] op:ando ,
+['] op:ori , ['] op:oro ,
+['] op:xori , ['] op:xoro ,
+['] op:mini , ['] op:mino ,
+['] op:maxi , ['] op:maxo ,
 
 
 compiletoram
