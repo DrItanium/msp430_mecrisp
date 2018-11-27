@@ -459,13 +459,15 @@ ConditionRegister iris:defreg! cond!
   buttons-pressed@ dup
   button-s1-pressed? 
   if 
-	 ." Halting Execution" cr
      halt-execution
+	 ." Halting Execution" cr
   then
   button-s2-pressed?
   if 
-  	 ." Inspecting IP" cr
-	 ip@ u.lcd
+     toggle-debug
+     ." Toggle debug " 
+     debugging? if ." on" else ." off" then
+     cr
   then
   reset-buttons-isr ;
 
@@ -487,14 +489,19 @@ ConditionRegister iris:defreg! cond!
   quarter
   debug[ dup ." Opcode: " hex. cr ]debug
   ;
+: iris:dispatch-nil ( s2 s1 d op -- )
+  2drop 2drop ;
+\ double indirect dispatch to prevent constant fram erasure
+['] iris:dispatch-nil variable CoreDispatchMethod
+: iris:dispatch ( s2 s1 d op -- ) CoreDispatchMethod @ execute ;
 : iris:execution-loop ( -- ) 
   resume-execution
   begin 
     ip@ 
     debug[ dup u.lcd ]debug
     text@ 
-    iris:decode
-    \ body goes here
+    iris:decode ( s2 s1 d op )
+    iris:dispatch
     increment-next? if ip1+ then
     yes-increment-next
     executing? not
