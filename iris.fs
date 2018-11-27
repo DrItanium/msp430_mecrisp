@@ -450,5 +450,12 @@ ConditionRegister iris:defreg! cond!
 ['] not    iris:def2immarg notim
 ['] abs    iris:def2immarg absim
 
+: op:illegal ( s2 s1 dest -- )
+  halt-execution
+  ." Illegal Instruction" cr
+  ip@ u.lcd
+  ;
+
+
 compiletoram
 
