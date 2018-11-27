@@ -465,9 +465,7 @@ ConditionRegister iris:defreg! cond!
   button-s2-pressed?
   if 
      toggle-debug
-     ." Toggle debug " 
-     debugging? if ." on" else ." off" then
-     cr
+     ." Toggling debugging " debug[ ." on" else ." off" ]debug cr
   then
   reset-buttons-isr ;
 
@@ -485,15 +483,16 @@ ConditionRegister iris:defreg! cond!
 : iris:sysdown ( -- )
   iris:shutdown-core ;
 
-: iris:decode ( instruction -- s2 s1 d op )
+: iris:decode-nil ( instruction -- s2 s1 d op )
   quarter
-  debug[ dup ." Opcode: " hex. cr ]debug
-  ;
+  debug[ dup ." Opcode: " hex. cr ]debug ;
 : iris:dispatch-nil ( s2 s1 d op -- )
   2drop 2drop ;
-\ double indirect dispatch to prevent constant fram erasure
+\ double indirect dispatch to prevent constant fram erasure as it's time consuming
+['] iris:decode-nil variable CoreDecodeMethod
 ['] iris:dispatch-nil variable CoreDispatchMethod
 : iris:dispatch ( s2 s1 d op -- ) CoreDispatchMethod @ execute ;
+: iris:decode ( instruction -- s2 s1 d op ) CoreDecodeMethod @ execute ;
 : iris:execution-loop ( -- ) 
   resume-execution
   begin 
