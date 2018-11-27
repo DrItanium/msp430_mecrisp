@@ -8,7 +8,16 @@ true variable CoreExec
 : halt-execution ( -- ) false CoreExec ! ;
 : resume-execution ( -- ) true CoreExec ! ;
 true variable CoreIncrementNext
+: increment-next? ( -- ) CoreIncrementNext @ 0<> ;
+: no-increment-next ( -- ) false CoreIncrementNext ! ;
+: yes-increment-next ( -- ) true CoreIncrementNext ! ;
 0 variable CoreIP
+: 0ip ( -- ) 0 CoreIP ! ;
+
+false variable CoreDebugging
+: debug? ( -- f ) CoreDebugging @ 0<> ;
+: yes-debug ( -- ) true CoreDebugging ! ;
+: no-debug ( -- ) false CoreDebugging ! ;
 
 $3FFF $2 2constant CodeMemoryEnd
 $4400 $0 2constant CodeMemoryStart
@@ -181,9 +190,9 @@ ConditionRegister iris:defreg! cond!
   ;
 
 : iris:init-core ( -- ) 
-  true CoreExec !
-  true CoreIncrementNext !
-  0 CoreIP !
+  resume-execution
+  yes-increment-next
+  0ip
 
   CoreRegisterCount 0 do
   i 0register!
@@ -445,10 +454,7 @@ ConditionRegister iris:defreg! cond!
 ['] abs    iris:def2immarg absim
 
 \ execution loop
-: iris:decode ( instruction -- s2 s1 d op )
-\ TODO implement the decoder routine
-  quarter 
-  halt-execution ;
+
 
 \ debugging features
 
@@ -481,6 +487,23 @@ ConditionRegister iris:defreg! cond!
 : iris:sysdown ( -- )
   iris:shutdown-core ;
 
+: iris:decode ( instruction -- s2 s1 d op )
+  quarter
+  debug? if dup ." Opcode: " hex. cr then
+  ;
+: iris:execution-loop ( -- ) 
+  resume-execution
+  begin 
+    ip@ 
+    debug? if dup u.lcd then
+    text@ 
+    iris:decode
+    \ body goes here
+    increment-next? if ip1+ then
+    yes-increment-next
+    executing? not
+  until
+  ;
 
 compiletoram
 
