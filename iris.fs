@@ -14,10 +14,6 @@ true variable CoreIncrementNext
 0 variable CoreIP
 : 0ip ( -- ) 0 CoreIP ! ;
 
-false variable CoreDebugging
-: debug? ( -- f ) CoreDebugging @ 0<> ;
-: yes-debug ( -- ) true CoreDebugging ! ;
-: no-debug ( -- ) false CoreDebugging ! ;
 
 $3FFF $2 2constant CodeMemoryEnd
 $4400 $0 2constant CodeMemoryStart
@@ -489,13 +485,13 @@ ConditionRegister iris:defreg! cond!
 
 : iris:decode ( instruction -- s2 s1 d op )
   quarter
-  debug? if dup ." Opcode: " hex. cr then
+  debug[ dup ." Opcode: " hex. cr ]debug
   ;
 : iris:execution-loop ( -- ) 
   resume-execution
   begin 
     ip@ 
-    debug? if dup u.lcd then
+    debug[ dup u.lcd ]debug
     text@ 
     iris:decode
     \ body goes here

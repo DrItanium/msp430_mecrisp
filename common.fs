@@ -79,4 +79,19 @@ $FFF0 construct-mask mask-upper-12
 : constseq+: ( n inc -- n+inc ) over constant + ;
 : constseq-: ( n dec -- n-inc ) over constant - ;
 : constseq} ( n -- ) drop ;
+
+false variable Debugging
+: debug? ( -- f ) Debugging @ 0<> ;
+: yes-debug ( -- ) true Debugging ! ;
+: no-debug ( -- ) false Debugging ! ;
+
+: debug[ ( -- ) \ start code body to fire if debugging active
+  postpone debug?
+  postpone if 
+  immediate ;
+
+: ]debug ( -- ) \ end code body that will be fired if debugging is active
+  postpone then
+  immediate ;
+  
 compiletoram
