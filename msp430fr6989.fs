@@ -12,24 +12,24 @@ compiletoflash
 : &paies  ( port-base -- addr ) $18 + ;
 : &paie   ( port-base -- addr ) $1a + ;
 : &paifg  ( port-base -- addr ) $1c + ;
-$200 constant P1BASE
-$201 constant P2BASE
-$220 constant P3BASE
-$221 constant P4BASE
-$240 constant P5BASE
-$241 constant P6BASE
-$260 constant P7BASE
-$261 constant P8BASE
-$280 constant P9BASE
-$281 constant P10BASE
-$80 constant Pin7
-$40 constant Pin6
-$20 constant Pin5
-$10 constant Pin4
-$08 constant Pin3
-$04 constant Pin2
-$02 constant Pin1
-$01 constant Pin0
+$200 constant p1base
+$201 constant p2base
+$220 constant p3base
+$221 constant p4base
+$240 constant p5base
+$241 constant p6base
+$260 constant p7base
+$261 constant p8base
+$280 constant p9base
+$281 constant p10base
+$80 constant pin7
+$40 constant pin6
+$20 constant pin5
+$10 constant pin4
+$08 constant pin3
+$04 constant pin2
+$02 constant pin1
+$01 constant pin0
 compiletoram
 : def-port-regs ( base "constants" -- ) 
   compiletoflash
