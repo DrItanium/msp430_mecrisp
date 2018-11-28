@@ -63,23 +63,14 @@ $FF {constseq
 	constseq}
 
 \ instruction decoding routines, assume that the double word setup is handled externally
-: 2imm8s ( v -- hi lo ) halve swap ;
-: decode-3reg ( d1 -- src2 src1 dest op ) 
-  swap ( hi lo ) 
-  quarter swap ( src1 src2 dest op )
-  2>r swap ( src2 src1 )
-  2r> ( src2 src1 dest op ) 
-  ;
-: decode-2reg-with-imm ( d1 -- imm8 src1 dest op ) decode-3reg ;
-: decode-2reg ( d1 -- src1 dest op ) 
-  swap ( hi lo )
-  quarter swap ( src1 nil dest op ) 
-  rot drop ( src1 dest op ) 
-  ;
-: decode-imm16 ( d1 -- imm16 dest op ) 
-  swap ( imm16 lo )
-  2imm8s ( imm16 dest op ) 
-  ;
+: 2arg-imm16-form ( s2 s dest -- imm16 dest )
+  -rot swap ( dest l h )
+  unhalve ( dest value ) 
+  swap ( value dest ) ;
+: imm16-only-form ( h l dest -- imm16 ) drop swap unhalve ;
+: 2arg-form ( s2 s d -- s d ) rot drop ;
+: 1arg-form ( s2 s d -- d ) -rot 2drop ;
+: 0arg-form ( s2 s d -- ) 3drop ;
 
 \ it seems we have access to the upper ~80kb of memory for storage purposes
 
@@ -129,10 +120,18 @@ $FF {constseq
 
 : iris:defreg@ ( loc "name" -- ) <builds , does> ( -- value ) @ register@ ;
 : iris:defreg! ( loc "name" -- ) <builds , does> ( value -- ) @ register! ;
-StackPointer iris:defreg@ stp@ 
-StackPointer iris:defreg! stp!
-ConditionRegister iris:defreg@ cond@
-ConditionRegister iris:defreg! cond!
+
+StackPointer      iris:defreg@ stp@  StackPointer      iris:defreg! stp!
+ConditionRegister iris:defreg@ cond@ ConditionRegister iris:defreg! cond!
+ControlRegister0  iris:defreg@ cr0@  ControlRegister0  iris:defreg! cr0!
+ControlRegister1  iris:defreg@ cr1@  ControlRegister1  iris:defreg! cr1!
+ControlRegister2  iris:defreg@ cr2@  ControlRegister2  iris:defreg! cr2!
+ControlRegister3  iris:defreg@ cr3@  ControlRegister3  iris:defreg! cr3!
+ControlRegister4  iris:defreg@ cr4@  ControlRegister4  iris:defreg! cr4!
+ControlRegister5  iris:defreg@ cr5@  ControlRegister5  iris:defreg! cr5!
+ControlRegister6  iris:defreg@ cr6@  ControlRegister6  iris:defreg! cr6!
+ControlRegister7  iris:defreg@ cr7@  ControlRegister7  iris:defreg! cr7!
+
 : unpack-cond ( -- value ) cond@ 0<> ;
 : pack-cond ( value -- ) 0<> cond! ;
 
@@ -153,6 +152,7 @@ ConditionRegister iris:defreg! cond!
 
 ['] mask-data& ['] data@ def-print-word-cell print-data-cell
 ['] mask-stack& ['] stack@ def-print-word-cell print-stack-cell
+
 : print-register ( address -- ) 
   save-base
   dup register@ 
@@ -161,6 +161,7 @@ ConditionRegister iris:defreg! cond!
   ." Register r" decimal u. ." :" 
   print-word-value cr
   restore-base ;
+
 : print-text-cell ( address -- )
   save-base
   dup 
@@ -188,33 +189,27 @@ ConditionRegister iris:defreg! cond!
   ." Data Memory" cr $2000 0 print-data-cell-range cr
   ." Stack Memory" cr $2000 0 print-stack-cell-range cr 
   ;
-
+: 0memory ( -- ) 
+  $2000 0 do
+  i 0text!
+  i 0data!
+  i 0stack!
+  loop ;
+: 0registers ( -- )
+  CoreRegisterCount 0 do
+  i 0register! 
+  loop 
+  ;
+: iris:reset-storage ( -- )
+  0ip
+  0registers
+  0memory ;
 : iris:init-core ( -- ) 
   resume-execution
   yes-increment-next
   0ip
-
-  CoreRegisterCount 0 do
-  i 0register!
-  loop
-
-  $2000 0 do
-  i 0text!
-  i 0data!
-  i 0stack!
-  loop
   ;
-: iris:shutdown-core ( -- )
-  \ todo zero out memory as we see fit
-  CoreRegisterCount 0 do
-  i 0register! 
-  loop
-  $2000 0 do
-  i 0text!
-  i 0data!
-  i 0stack!
-  loop
-  ;
+
 : ip@ ( -- value ) CoreIP @ mask-text& ;
 : ip! ( value -- ) mask-text& CoreIP ! ;
 : ip1+ ( -- ) ip@ 1+ ip! ;
@@ -232,16 +227,6 @@ ConditionRegister iris:defreg! cond!
   stp! \ update the stack pointer
   ;
 \ operations!
-: 2arg-imm16-form ( s2 s dest -- imm16 dest )
-  -rot swap ( dest l h )
-  unhalve ( dest value ) 
-  swap ( value dest ) ;
-: imm16-only-form ( h l dest -- imm16 ) drop swap unhalve ;
-
-  
-: 2arg-form ( s2 s d -- s d ) rot drop ;
-: 1arg-form ( s2 s d -- d ) -rot 2drop ;
-: 0arg-form ( s2 s d -- ) 3drop ;
 \ branch operations
 : goto ( value -- ) ip! no-increment-next ;
 : get-next-address ( -- addr ) ip@ 1+ mask-text& ;
@@ -315,18 +300,12 @@ ConditionRegister iris:defreg! cond!
   iris:2reg-binary-execute
   pack-cond ;
 
-['] =   iris:defcompareop op:eqo   
-['] =   iris:defcompareop op:eqi
-['] <>  iris:defcompareop op:neqo 
-['] <>  iris:defcompareop op:neqi
-['] u<= iris:defcompareop op:leo 
-['] <=  iris:defcompareop op:lei
-['] u>= iris:defcompareop op:geo 
-['] >=  iris:defcompareop op:gei
-['] u<  iris:defcompareop op:lto 
-['] <   iris:defcompareop op:lti
-['] u>  iris:defcompareop op:gto 
-['] >   iris:defcompareop op:gti
+['] =   iris:defcompareop op:eqo   ['] =   iris:defcompareop op:eqi
+['] <>  iris:defcompareop op:neqo ['] <>  iris:defcompareop op:neqi
+['] u<= iris:defcompareop op:leo ['] <=  iris:defcompareop op:lei
+['] u>= iris:defcompareop op:geo ['] >=  iris:defcompareop op:gei
+['] u<  iris:defcompareop op:lto ['] <   iris:defcompareop op:lti
+['] u>  iris:defcompareop op:gto ['] >   iris:defcompareop op:gti
 
 \ arithmetic operators
 : iris:defarithop ( op "name" -- )
@@ -345,55 +324,31 @@ ConditionRegister iris:defreg! cond!
   rot @ execute 
   r> register! ;
 
-['] +      iris:defarithop op:addo  
-['] +      iris:defarithop op:addi
-['] -      iris:defarithop op:subo  
-['] -      iris:defarithop op:subi
-['] *      iris:defarithop op:mulo  
-['] *      iris:defarithop op:muli
-['] /      iris:defarithop op:divo  
-['] /      iris:defarithop op:divi
-['] mod    iris:defarithop op:remo  
-['] mod    iris:defarithop op:remi
-['] rshift iris:defarithop op:shro  
-['] rshift iris:defarithop op:shri
-['] lshift iris:defarithop op:shlo  
-['] lshift iris:defarithop op:shli
-['] and    iris:defarithop op:ando  
-['] and    iris:defarithop op:andi
-['] or     iris:defarithop op:oro   
-['] or     iris:defarithop op:ori
-['] xor    iris:defarithop op:xoro  
-['] xor    iris:defarithop op:xori
-['] umin   iris:defarithop op:mino  
-['] min    iris:defarithop op:mini
-['] umax   iris:defarithop op:maxo  
-['] max    iris:defarithop op:maxi
+['] +      iris:defarithop op:addo  ['] +      iris:defarithop op:addi
+['] -      iris:defarithop op:subo  ['] -      iris:defarithop op:subi
+['] *      iris:defarithop op:mulo  ['] *      iris:defarithop op:muli
+['] /      iris:defarithop op:divo  ['] /      iris:defarithop op:divi
+['] mod    iris:defarithop op:remo  ['] mod    iris:defarithop op:remi
+['] rshift iris:defarithop op:shro  ['] rshift iris:defarithop op:shri
+['] lshift iris:defarithop op:shlo  ['] lshift iris:defarithop op:shli
+['] and    iris:defarithop op:ando  ['] and    iris:defarithop op:andi
+['] or     iris:defarithop op:oro   ['] or     iris:defarithop op:ori
+['] xor    iris:defarithop op:xoro  ['] xor    iris:defarithop op:xori
+['] umin   iris:defarithop op:mino  ['] min    iris:defarithop op:mini
+['] umax   iris:defarithop op:maxo  ['] max    iris:defarithop op:maxi
 
-['] +      iris:defarithimmop op:addom  
-['] +      iris:defarithimmop op:addim
-['] -      iris:defarithimmop op:subom  
-['] -      iris:defarithimmop op:subim
-['] *      iris:defarithimmop op:mulom  
-['] *      iris:defarithimmop op:mulim
-['] /      iris:defarithimmop op:divom  
-['] /      iris:defarithimmop op:divim
-['] mod    iris:defarithimmop op:remom  
-['] mod    iris:defarithimmop op:remim
-['] rshift iris:defarithimmop op:shrom  
-['] rshift iris:defarithimmop op:shrim
-['] lshift iris:defarithimmop op:shlom  
-['] lshift iris:defarithimmop op:shlim
-['] and    iris:defarithimmop op:andom  
-['] and    iris:defarithimmop op:andim
-['] or     iris:defarithimmop op:orom   
-['] or     iris:defarithimmop op:orim
-['] xor    iris:defarithimmop op:xorom  
-['] xor    iris:defarithimmop op:xorim
-['] umin   iris:defarithimmop op:minom  
-['] min    iris:defarithimmop op:minim
-['] umax   iris:defarithimmop op:maxom  
-['] max    iris:defarithimmop op:maxim
+['] +      iris:defarithimmop op:addom  ['] +      iris:defarithimmop op:addim
+['] -      iris:defarithimmop op:subom  ['] -      iris:defarithimmop op:subim
+['] *      iris:defarithimmop op:mulom  ['] *      iris:defarithimmop op:mulim
+['] /      iris:defarithimmop op:divom  ['] /      iris:defarithimmop op:divim
+['] mod    iris:defarithimmop op:remom  ['] mod    iris:defarithimmop op:remim
+['] rshift iris:defarithimmop op:shrom  ['] rshift iris:defarithimmop op:shrim
+['] lshift iris:defarithimmop op:shlom  ['] lshift iris:defarithimmop op:shlim
+['] and    iris:defarithimmop op:andom  ['] and    iris:defarithimmop op:andim
+['] or     iris:defarithimmop op:orom   ['] or     iris:defarithimmop op:orim
+['] xor    iris:defarithimmop op:xorom  ['] xor    iris:defarithimmop op:xorim
+['] umin   iris:defarithimmop op:minom  ['] min    iris:defarithimmop op:minim
+['] umax   iris:defarithimmop op:maxom  ['] max    iris:defarithimmop op:maxim
 
 \ two argument operations
 : iris:def2arg ( op "name" -- )
@@ -407,14 +362,10 @@ ConditionRegister iris:defreg! cond!
   swap register! ;
 
 
-['] 1+     iris:def2arg op:inco    
-['] 1+     iris:def2arg op:inci
-['] 1-     iris:def2arg op:deco    
-['] 1-     iris:def2arg op:deci
-['] negate iris:def2arg op:inverto 
-['] negate iris:def2arg op:inverti 
-['] not    iris:def2arg op:noto    
-['] not    iris:def2arg op:noti
+['] 1+     iris:def2arg op:inco    ['] 1+     iris:def2arg op:inci
+['] 1-     iris:def2arg op:deco    ['] 1-     iris:def2arg op:deci
+['] negate iris:def2arg op:inverto ['] negate iris:def2arg op:inverti 
+['] not    iris:def2arg op:noto    ['] not    iris:def2arg op:noti
 ['] abs    iris:def2arg op:absi
 
 : op:illegal ( s2 s1 dest -- )
@@ -426,122 +377,75 @@ ConditionRegister iris:defreg! cond!
 : op:push-word ( s2 s1 dest -- ) 1arg-form register@ push-word ;
 : op:pop-word ( s2 s1 dest -- ) 1arg-form pop-word swap register! ;
 
-
 create iris:dispatch-table
 ['] op:illegal ,
-['] op:addi , 
-['] op:addo ,
-['] op:subi , 
-['] op:subo ,
-['] op:muli , 
-['] op:mulo ,
-['] op:divi , 
-['] op:divo ,
-['] op:remi , 
-['] op:remo ,
-['] op:shli , 
-['] op:shlo ,
-['] op:shri , 
-['] op:shro ,
-['] op:andi ,
-['] op:ando ,
-['] op:ori , 
-['] op:oro ,
-['] op:xori , 
-['] op:xoro ,
-['] op:mini ,
-['] op:mino ,
-['] op:maxi ,
-['] op:maxo ,
-
-['] op:addim ,
-['] op:addom ,
-['] op:subim ,
-['] op:subom ,
-['] op:mulim ,
-['] op:mulom ,
-['] op:divim ,
-['] op:divom ,
-['] op:remim ,
-['] op:remom ,
-['] op:shlim ,
-['] op:shlom ,
-['] op:shrim ,
-['] op:shrom ,
-['] op:andim ,
-['] op:andom ,
-['] op:orim ,
-['] op:orom ,
-['] op:xorim ,
-['] op:xorom ,
-['] op:minim , 
-['] op:minom ,
-['] op:maxim ,
-['] op:maxom ,
-
-['] op:eqi , 
-['] op:eqo ,
-['] op:neqi , 
-['] op:neqo ,
-['] op:lei , 
-['] op:leo ,
-['] op:gei , 
-['] op:geo ,
-['] op:lti , 
-['] op:lto ,
-['] op:gti , 
-['] op:gto ,
-
-['] op:goto ,
-['] op:goto-and-link ,
-['] op:branch ,
-['] op:branch-and-link ,
-['] op:calli ,
-['] op:callr ,
-['] op:return ,
-['] op:goto-if-true ,
-['] op:goto-if-false ,
-['] op:goto-if-true-and-link ,
-['] op:goto-if-false-and-link ,
-['] op:branch-if-true ,
-['] op:branch-if-false ,
-['] op:branch-if-true-and-link ,
-['] op:branch-if-false-and-link ,
-['] op:callr-if-true ,
-['] op:callr-if-false ,
-['] op:calli-if-true ,
-['] op:calli-if-false ,
-['] op:return-if-true , 
-['] op:return-if-false ,
-
-['] op:push-word ,
-['] op:pop-word ,
-['] op:set16 ,
-['] op:set12 ,
-['] op:set8 ,
-['] op:set4 ,
-['] op:move.reg ,
-['] op:load-data ,
-['] op:store-data ,
-
-['] op:inci ,
-['] op:inco ,
-['] op:deci ,
-['] op:deco ,
-['] op:inverti ,
-['] op:inverto ,
-['] op:noti ,
-['] op:noto ,
-['] op:absi ,
-
-\ disabled but later operations
-\ ['] op:load-code ,
-\ ['] op:store-code ,
+['] op:addi , ['] op:addo , ['] op:subi , ['] op:subo , ['] op:muli , 
+['] op:mulo , ['] op:divi , ['] op:divo , ['] op:remi , ['] op:remo ,
+['] op:shli , ['] op:shlo , ['] op:shri , ['] op:shro , ['] op:andi ,
+['] op:ando , ['] op:ori , ['] op:oro , ['] op:xori , ['] op:xoro ,
+['] op:mini , ['] op:mino , ['] op:maxi , ['] op:maxo , ['] op:addim ,
+['] op:addom , ['] op:subim , ['] op:subom , ['] op:mulim , ['] op:mulom ,
+['] op:divim , ['] op:divom , ['] op:remim , ['] op:remom , ['] op:shlim ,
+['] op:shlom , ['] op:shrim , ['] op:shrom , ['] op:andim , ['] op:andom ,
+['] op:orim , ['] op:orom , ['] op:xorim , ['] op:xorom , ['] op:minim , 
+['] op:minom , ['] op:maxim , ['] op:maxom , ['] op:eqi , ['] op:eqo ,
+['] op:neqi , ['] op:neqo , ['] op:lei , ['] op:leo , ['] op:gei , 
+['] op:geo , ['] op:lti , ['] op:lto , ['] op:gti , ['] op:gto ,
+['] op:goto , ['] op:goto-and-link , ['] op:branch , ['] op:branch-and-link ,
+['] op:calli , ['] op:callr , ['] op:return , ['] op:goto-if-true ,
+['] op:goto-if-false , ['] op:goto-if-true-and-link ,
+['] op:goto-if-false-and-link , ['] op:branch-if-true ,
+['] op:branch-if-false , ['] op:branch-if-true-and-link ,
+['] op:branch-if-false-and-link , ['] op:callr-if-true ,
+['] op:callr-if-false , ['] op:calli-if-true , ['] op:calli-if-false ,
+['] op:return-if-true , ['] op:return-if-false , ['] op:push-word ,
+['] op:pop-word , ['] op:set16 , ['] op:set12 , ['] op:set8 , ['] op:set4 ,
+['] op:move.reg , ['] op:load-data , ['] op:store-data , ['] op:inci ,
+['] op:inco , ['] op:deci , ['] op:deco , ['] op:inverti , ['] op:inverto ,
+['] op:noti , ['] op:noto , ['] op:absi , 
+\ replace op:illegal addresses with new operations starting here
+['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
+['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
+['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
+['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
+['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
+['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
+['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
+['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
+['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
+['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
+['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
+['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
+['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
+['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
+['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
+['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
+['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
+['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
+['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
+['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
+['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
+['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
+['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
+['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
+['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
+['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
+['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
+['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
+['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
+['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
+['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
+['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
+['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
+['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
+['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
+['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
+['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
+['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
+['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
 
 \ debugging features
-
-: iris:button-handlers ( -- ) 
-  \ edit this word to 
+: iris:default-button-handler ( -- ) 
   buttons-pressed@ dup
   button-s1-pressed? 
   if 
@@ -552,15 +456,14 @@ create iris:dispatch-table
   if 
      toggle-debug
      ." Toggling debugging " debug[ ." on" else ." off" ]debug cr
-  then
+  then ;
+['] iris:default-button-handler variable iris:ButtonHandler
+: iris:button-handlers ( -- ) 
+  iris:ButtonHandler @ execute
   reset-buttons-isr ;
 
 : iris:sysinit ( -- )
-  lcd-init
-  led-init
-  configure-buttons
-  led1-off
-  led2-off
+  core:sysinit
   s" iris" typelcd
   \ setup the button handlers
   ['] iris:button-handlers irq-port1 !
@@ -569,29 +472,21 @@ create iris:dispatch-table
 : iris:sysdown ( -- )
   iris:shutdown-core ;
 
-: iris:decode-nil ( instruction -- s2 s1 d op )
-  quarter
-  debug[ dup ." Opcode: " hex. cr ]debug ;
-: iris:dispatch-nil ( s2 s1 d op -- )
-  2drop 2drop ;
-\ double indirect dispatch to prevent constant fram erasure as it's time consuming
-['] iris:decode-nil variable CoreDecodeMethod
-['] iris:dispatch-nil variable CoreDispatchMethod
-: iris:dispatch ( s2 s1 d op -- ) CoreDispatchMethod @ execute ;
-: iris:decode ( instruction -- s2 s1 d op ) CoreDecodeMethod @ execute ;
 : iris:execution-loop ( -- ) 
   resume-execution
   begin 
     ip@ 
     debug[ dup u.lcd ]debug
-    text@ 
-    iris:decode ( s2 s1 d op )
-    iris:dispatch
+    text@ quarter \ decode 
+    cells iris:dispatch-table + @ execute
     increment-next? if ip1+ then
     yes-increment-next
     executing? not
   until
   ;
 
+: init ( -- )
+  ." Iris Core Simulator" cr
+  iris:sysinit ;
 compiletoram
 

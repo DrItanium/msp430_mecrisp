@@ -350,4 +350,11 @@ $0000 ,  \ 127 DEL
 : u.lcd ( u -- )   0           <# # # # # # #          #> typelcd ;
 
 : l ( -- ) 0 parse typelcd ;
+: core:sysinit ( -- )
+  lcd-init
+  led-init
+  configure-buttons
+  led1-off
+  led2-off
+  ;
 compiletoram
