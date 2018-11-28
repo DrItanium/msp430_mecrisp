@@ -94,5 +94,7 @@ false variable Debugging
 : ]debug ( -- ) \ end code body that will be fired if debugging is active
   postpone then
   immediate ;
+: 3drop ( a b c -- ) 2drop drop ;
+: 4drop ( a b c d -- ) 2drop 2drop ;
   
 compiletoram

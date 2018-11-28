@@ -133,6 +133,9 @@ StackPointer iris:defreg@ stp@
 StackPointer iris:defreg! stp!
 ConditionRegister iris:defreg@ cond@
 ConditionRegister iris:defreg! cond!
+: unpack-cond ( -- value ) cond@ 0<> ;
+: pack-cond ( value -- ) 0<> cond! ;
+
 : 0register! ( offset -- ) 0 swap register! ;
 : 0text! ( value offset -- ) 0 s>d rot text! ;
 : 0data! ( value offset -- ) 0 swap data! ;
@@ -229,56 +232,69 @@ ConditionRegister iris:defreg! cond!
   stp! \ update the stack pointer
   ;
 \ operations!
-\ branch operations
-: goto ( value -- ) 
-  ip! 
-  false CoreIncrementNext !  ;
-: get-next-address ( -- addr )
-  ip@ 1+ mask-text& ;
-: update-link-register ( link -- ) 
-  get-next-address swap register! ;
-: next-address-to-stack ( -- ) get-next-address push-word ;
-: goto-and-link ( value register -- ) 
-  update-link-register goto ;
-: branch ( register -- ) register@ goto ; 
-: branch-and-link ( dest link -- ) update-link-register branch ;
-: calli ( addr -- ) next-address-to-stack goto ;
-: callr ( register -- ) register@ calli ;
-: return ( -- ) pop-word goto ; 
-
-\ conditional operations
-: unpack-cond ( -- value ) cond@ 0<> ;
-: pack-cond ( value -- ) 0<> cond! ;
-: op:goto-if-true ( value -- ) unpack-cond if goto else drop then ;
-: op:goto-if-true-and-link ( v l -- ) unpack-cond if goto-and-link else 2drop then ;
-: op:branch-if-true ( v -- ) unpack-cond if branch else drop then ;
-: op:branch-if-true-and-link ( v l -- ) unpack-cond if branch-and-link else 2drop then ;
-: op:calli-if-true ( v -- ) unpack-cond if calli else drop then ;
-: op:callr-if-true ( v -- ) unpack-cond if callr else drop then ;
-: op:return-if-true ( -- ) unpack-cond if return then ;
-
-: op:goto-if-false ( value -- ) not op:goto-if-true ;
-: op:goto-if-false-and-link ( v l -- ) not op:goto-if-true-and-link ;
-: op:branch-if-false ( v -- ) not op:branch-if-true ;
-: op:branch-if-false-and-link ( v l -- ) not op:branch-if-true-and-link ;
-: op:callr-if-false ( v -- ) not op:callr-if-true ;
-: op:calli-if-false ( v -- ) not op:calli-if-true ;
-: op:return-if-false ( -- ) unpack-cond not if return then ;
-
-\ memory and register manipulation operations
-  
-: op:load-data ( addr dest -- ) swap register@ data@ swap register! ;
-: op:store-data ( value dest -- ) register@ swap register@ swap data! ;
-
-\ setters and move commands
 : 2arg-imm16-form ( s2 s dest -- imm16 dest )
   -rot swap ( dest l h )
   unhalve ( dest value ) 
   swap ( value dest ) ;
+: imm16-only-form ( h l dest -- imm16 ) drop swap unhalve ;
+
   
 : 2arg-form ( s2 s d -- s d ) rot drop ;
 : 1arg-form ( s2 s d -- d ) -rot 2drop ;
-: 0arg-form ( s2 s d -- ) drop 2drop ;
+: 0arg-form ( s2 s d -- ) 3drop ;
+\ branch operations
+: goto ( value -- ) ip! no-increment-next ;
+: get-next-address ( -- addr ) ip@ 1+ mask-text& ;
+: update-link-register ( link -- ) get-next-address swap register! ;
+: next-address-to-stack ( -- ) get-next-address push-word ;
+: callg ( addr -- ) next-address-to-stack goto ;
+
+\ conditional operations
+: op:goto ( s2 s1 d -- ) imm16-only-form goto ;
+: op:goto-and-link ( s2 s1 d -- ) 2arg-imm16-form update-link-register goto ;
+: op:branch ( s2 s1 d -- ) 1arg-form register@ goto ;
+: op:branch-and-link ( s2 s1 d -- ) 
+  2arg-form ( dest link )
+  update-link-register ( dest )
+  register@ goto ;
+: op:return ( s2 s1 d -- ) 0arg-form pop-word goto ;
+: op:calli ( s2 s1 d -- ) imm16-only-form callg ;
+: op:callr ( s2 s1 d -- ) 1arg-form register@ callg ;
+
+: iris:defcondop ( uncond-op "name" -- ) 
+  <builds ,
+  does> ( s2 s1 d -- )
+  ( s2 s1 d addr -- )
+  unpack-cond if @ execute else 4drop then ;
+: iris:defcondop-false ( uncond-op "name" -- )
+  <builds ,
+  does> ( s2 s1 d -- )
+        ( s2 s1 d addr -- )
+        unpack-cond not if @ execute else 4drop then ;
+
+['] op:goto iris:defcondop op:goto-if-true
+['] op:goto iris:defcondop-false op:goto-if-false
+['] op:goto-and-link iris:defcondop op:goto-if-true-and-link
+['] op:goto-and-link iris:defcondop op:goto-if-false-and-link
+['] op:branch iris:defcondop op:branch-if-true
+['] op:branch iris:defcondop-false op:branch-if-false
+['] op:branch-and-link iris:defcondop op:branch-if-true-and-link
+['] op:branch-and-link iris:defcondop op:branch-if-false-and-link
+['] op:calli iris:defcondop op:calli-if-true 
+['] op:calli iris:defcondop-false op:calli-if-false
+['] op:callr iris:defcondop op:callr-if-true 
+['] op:callr iris:defcondop-false op:callr-if-false
+['] op:return iris:defcondop op:return-if-true
+['] op:return iris:defcondop-false op:return-if-false
+    
+\ memory and register manipulation operations
+  
+: op:load-data ( s2 s1 dest -- ) 
+  2arg-form 
+  swap register@ data@ swap register! ;
+: op:store-data ( s2 s1 dest -- ) 2arg-form register@ swap register@ swap data! ;
+
+\ setters and move commands
 : op:set16 ( h l dest -- ) 2arg-imm16-form register! ;
 : op:set12 ( h l dest -- ) 2arg-imm16-form swap mask-lower-12 swap register! ;
 : op:set8 ( h l dest -- ) 2arg-form swap mask-lower-half swap register! ;
@@ -472,6 +488,13 @@ create iris:dispatch-table
 ['] op:gti , 
 ['] op:gto ,
 
+['] op:goto ,
+['] op:goto-and-link ,
+['] op:branch ,
+['] op:branch-and-link ,
+['] op:calli ,
+['] op:callr ,
+['] op:return ,
 ['] op:goto-if-true ,
 ['] op:goto-if-false ,
 ['] op:goto-if-true-and-link ,
@@ -498,8 +521,6 @@ create iris:dispatch-table
 ['] op:move.reg ,
 ['] op:load-data ,
 ['] op:store-data ,
-['] op:load-code ,
-['] op:store-code ,
 
 ['] op:inci ,
 ['] op:inco ,
@@ -511,6 +532,9 @@ create iris:dispatch-table
 ['] op:noto ,
 ['] op:absi ,
 
+\ disabled but later operations
+\ ['] op:load-code ,
+\ ['] op:store-code ,
 
 compiletoram
 
