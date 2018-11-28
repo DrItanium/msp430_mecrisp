@@ -249,187 +249,147 @@ ConditionRegister iris:defreg! cond!
 \ conditional operations
 : unpack-cond ( -- value ) cond@ 0<> ;
 : pack-cond ( value -- ) 0<> cond! ;
-: goto-if-true ( value -- ) 
-  unpack-cond 
-  if 
-    goto 
-  else 
-    drop 
-  then ;
-: goto-if-true-and-link ( v l -- ) 
-  unpack-cond 
-  if 
-     goto-and-link 
-  else 
-     2drop 
-  then ;
-: branch-if-true ( v -- ) 
-  unpack-cond 
-  if 
-    branch 
-  else 
-    drop 
-  then ;
-: branch-if-true-and-link ( v l -- ) 
-  unpack-cond 
-  if 
-    branch-and-link 
-  else 
-    2drop 
-  then ;
-: calli-if-true ( v -- ) 
-  unpack-cond 
-  if 
-    calli 
-  else 
-    drop 
-  then ;
-: callr-if-true ( v -- ) 
-  unpack-cond
-  if 
-    callr 
-  else 
-    drop 
-  then ;
-: return-if-true ( -- ) 
-  unpack-cond
-  if 
-    return 
-  then ;
+: op:goto-if-true ( value -- ) unpack-cond if goto else drop then ;
+: op:goto-if-true-and-link ( v l -- ) unpack-cond if goto-and-link else 2drop then ;
+: op:branch-if-true ( v -- ) unpack-cond if branch else drop then ;
+: op:branch-if-true-and-link ( v l -- ) unpack-cond if branch-and-link else 2drop then ;
+: op:calli-if-true ( v -- ) unpack-cond if calli else drop then ;
+: op:callr-if-true ( v -- ) unpack-cond if callr else drop then ;
+: op:return-if-true ( -- ) unpack-cond if return then ;
 
-: goto-if-false ( value -- ) not goto-if-true ;
-: goto-if-false-and-link ( v l -- ) not goto-if-true-and-link ;
-: branch-if-false ( v -- ) not branch-if-true ;
-: branch-if-false-and-link ( v l -- ) not branch-if-true-and-link ;
-: callr-if-false ( v -- ) not callr-if-true ;
-: calli-if-false ( v -- ) not calli-if-true ;
-: return-if-false ( -- ) not return-if-true ;
+: op:goto-if-false ( value -- ) not op:goto-if-true ;
+: op:goto-if-false-and-link ( v l -- ) not op:goto-if-true-and-link ;
+: op:branch-if-false ( v -- ) not op:branch-if-true ;
+: op:branch-if-false-and-link ( v l -- ) not op:branch-if-true-and-link ;
+: op:callr-if-false ( v -- ) not op:callr-if-true ;
+: op:calli-if-false ( v -- ) not op:calli-if-true ;
+: op:return-if-false ( -- ) unpack-cond not if return then ;
 
 \ memory and register manipulation operations
   
-: lddat ( addr dest -- ) swap register@ data@ swap register! ;
-: stdat ( value dest -- ) register@ swap register@ swap data! ;
+: op:load-data ( addr dest -- ) swap register@ data@ swap register! ;
+: op:store-data ( value dest -- ) register@ swap register@ swap data! ;
+
 \ setters and move commands
-: defpartialset ( function "name" -- ) 
-  <builds , 
-  does>
-  swap >r ( value fn )
-  @ execute r> register! ;
+: 2arg-imm16-form ( s2 s dest -- imm16 dest )
+  -rot swap ( dest l h )
+  unhalve ( dest value ) 
+  swap ( value dest ) ;
+  
+: 2arg-form ( s2 s d -- s d ) rot drop ;
+: 1arg-form ( s2 s d -- d ) -rot 2drop ;
+: 0arg-form ( s2 s d -- ) drop 2drop ;
+: op:set16 ( h l dest -- ) 2arg-imm16-form register! ;
+: op:set12 ( h l dest -- ) 2arg-imm16-form swap mask-lower-12 swap register! ;
+: op:set8 ( h l dest -- ) 2arg-form swap mask-lower-half swap register! ;
+: op:set4 ( h l dest -- ) 2arg-form swap mask-lowest-int4 swap register! ;
 
-['] mask-lowest-int4 defpartialset set4
-['] mask-lower-half defpartialset set8
-['] mask-lower-12 defpartialset set12
-: set16  ( imm dest -- ) register! ;
-: move.reg ( src dest -- ) swap register@ swap register! ;
+: op:move.reg ( src2 src dest -- ) 2arg-form swap register@ swap register! ;
 
-: 1reg>2reg ( address -- lo hi ) 
-  2* \ make it immediately even by zeroing the contents
-  mask-register-index 
-  dup 1+ ;
 \ comparison operations, implied conditional operator is destination
+: 2src-extract ( s2 s1 -- r1 r2 ) register@ swap register@ ;
+: iris:2reg-binary-execute ( s2 s1 addr -- * )
+  -rot 
+  2src-extract
+  rot @ execute ;
 : iris:defcompareop ( operator "name" -- )
   <builds , 
-  does> ( a2 a1 -- )
-  -rot ( addr a2 a1 )
-  register@ swap register@ ( addr r1 r2 )
-  rot @ execute ( outcome ) 
+  does> ( src2 src1 dest addr -- )
+  >r 2arg-form r> ( s1 dest addr )
+  iris:2reg-binary-execute
   pack-cond ;
 
-['] =   iris:defcompareop eqo   
-['] =   iris:defcompareop eqi
-['] <>  iris:defcompareop neqo 
-['] <>  iris:defcompareop neqi
-['] u<= iris:defcompareop leo 
-['] <=  iris:defcompareop lei
-['] u>= iris:defcompareop geo 
-['] >=  iris:defcompareop gei
-['] u<  iris:defcompareop lto 
-['] <   iris:defcompareop lti
-['] u>  iris:defcompareop gto 
-['] >   iris:defcompareop gti
+['] =   iris:defcompareop op:eqo   
+['] =   iris:defcompareop op:eqi
+['] <>  iris:defcompareop op:neqo 
+['] <>  iris:defcompareop op:neqi
+['] u<= iris:defcompareop op:leo 
+['] <=  iris:defcompareop op:lei
+['] u>= iris:defcompareop op:geo 
+['] >=  iris:defcompareop op:gei
+['] u<  iris:defcompareop op:lto 
+['] <   iris:defcompareop op:lti
+['] u>  iris:defcompareop op:gto 
+['] >   iris:defcompareop op:gti
 
 \ arithmetic operators
 : iris:defarithop ( op "name" -- )
   <builds , 
   does> ( r2 r1 dest addr -- )
-  swap >r -rot 
-  register@ swap register@ 
-  rot @ execute 
+  swap >r 
+  iris:2reg-binary-execute
   r> register! ;
+
 : iris:defarithimmop ( op "name" -- )
   <builds , 
   does> ( imm8 r1 dest addr -- )
-  swap >r -rot ( addr imm8 r1 )
+  swap >r 
+  -rot ( addr imm8 r1 )
   register@ swap ( addr v1 imm8 )
   rot @ execute 
   r> register! ;
 
-['] +      iris:defarithop addo  
-['] +      iris:defarithop addi
-['] -      iris:defarithop subo  
-['] -      iris:defarithop subi
-['] *      iris:defarithop mulo  
-['] *      iris:defarithop muli
-['] /      iris:defarithop divo  
-['] /      iris:defarithop divi
-['] mod    iris:defarithop remo  
-['] mod    iris:defarithop remi
-['] rshift iris:defarithop shro  
-['] rshift iris:defarithop shri
-['] lshift iris:defarithop shlo  
-['] lshift iris:defarithop shli
-['] and    iris:defarithop ando  
-['] and    iris:defarithop andi
-['] or     iris:defarithop oro   
-['] or     iris:defarithop ori
-['] xor    iris:defarithop xoro  
-['] xor    iris:defarithop xori
-['] umin   iris:defarithop mino  
-['] min    iris:defarithop mini
-['] umax   iris:defarithop maxo  
-['] max    iris:defarithop maxi
+['] +      iris:defarithop op:addo  
+['] +      iris:defarithop op:addi
+['] -      iris:defarithop op:subo  
+['] -      iris:defarithop op:subi
+['] *      iris:defarithop op:mulo  
+['] *      iris:defarithop op:muli
+['] /      iris:defarithop op:divo  
+['] /      iris:defarithop op:divi
+['] mod    iris:defarithop op:remo  
+['] mod    iris:defarithop op:remi
+['] rshift iris:defarithop op:shro  
+['] rshift iris:defarithop op:shri
+['] lshift iris:defarithop op:shlo  
+['] lshift iris:defarithop op:shli
+['] and    iris:defarithop op:ando  
+['] and    iris:defarithop op:andi
+['] or     iris:defarithop op:oro   
+['] or     iris:defarithop op:ori
+['] xor    iris:defarithop op:xoro  
+['] xor    iris:defarithop op:xori
+['] umin   iris:defarithop op:mino  
+['] min    iris:defarithop op:mini
+['] umax   iris:defarithop op:maxo  
+['] max    iris:defarithop op:maxi
 
-['] +      iris:defarithimmop addom  
-['] +      iris:defarithimmop addim
-['] -      iris:defarithimmop subom  
-['] -      iris:defarithimmop subim
-['] *      iris:defarithimmop mulom  
-['] *      iris:defarithimmop mulim
-['] /      iris:defarithimmop divom  
-['] /      iris:defarithimmop divim
-['] mod    iris:defarithimmop remom  
-['] mod    iris:defarithimmop remim
-['] rshift iris:defarithimmop shrom  
-['] rshift iris:defarithimmop shrim
-['] lshift iris:defarithimmop shlom  
-['] lshift iris:defarithimmop shlim
-['] and    iris:defarithimmop andom  
-['] and    iris:defarithimmop andim
-['] or     iris:defarithimmop orom   
-['] or     iris:defarithimmop orim
-['] xor    iris:defarithimmop xorom  
-['] xor    iris:defarithimmop xorim
-['] umin   iris:defarithimmop minom  
-['] min    iris:defarithimmop minim
-['] umax   iris:defarithimmop maxom  
-['] max    iris:defarithimmop maxim
+['] +      iris:defarithimmop op:addom  
+['] +      iris:defarithimmop op:addim
+['] -      iris:defarithimmop op:subom  
+['] -      iris:defarithimmop op:subim
+['] *      iris:defarithimmop op:mulom  
+['] *      iris:defarithimmop op:mulim
+['] /      iris:defarithimmop op:divom  
+['] /      iris:defarithimmop op:divim
+['] mod    iris:defarithimmop op:remom  
+['] mod    iris:defarithimmop op:remim
+['] rshift iris:defarithimmop op:shrom  
+['] rshift iris:defarithimmop op:shrim
+['] lshift iris:defarithimmop op:shlom  
+['] lshift iris:defarithimmop op:shlim
+['] and    iris:defarithimmop op:andom  
+['] and    iris:defarithimmop op:andim
+['] or     iris:defarithimmop op:orom   
+['] or     iris:defarithimmop op:orim
+['] xor    iris:defarithimmop op:xorom  
+['] xor    iris:defarithimmop op:xorim
+['] umin   iris:defarithimmop op:minom  
+['] min    iris:defarithimmop op:minim
+['] umax   iris:defarithimmop op:maxom  
+['] max    iris:defarithimmop op:maxim
 
 \ two argument operations
 : iris:def2arg ( op "name" -- )
   <builds , 
-  does> ( src dest addr -- )
+  does> ( src2 src dest addr -- )
+  >r ( src2 src dest )
+  2arg-form r> ( src dest addr )
   rot ( dest addr src )
-  register@  swap ( dest contents addr )
+  register@ swap ( dest contents addr )
   @ execute ( dest value )
   swap register! ;
 
-: iris:def2immarg ( op "name" -- )
-  <builds ,
-  does> ( imm dest addr -- )
-  swap >r ( imm addr ) 
-  @ execute ( result )
-  r> ( result dest )
-  register! ;
 
 ['] 1+     iris:def2arg op:inco    
 ['] 1+     iris:def2arg op:inci
@@ -440,15 +400,6 @@ ConditionRegister iris:defreg! cond!
 ['] not    iris:def2arg op:noto    
 ['] not    iris:def2arg op:noti
 ['] abs    iris:def2arg op:absi
-['] 1+     iris:def2immarg op:incom    
-['] 1+     iris:def2arg op:incim
-['] 1-     iris:def2immarg op:decom    
-['] 1-     iris:def2arg op:decim
-['] negate iris:def2immarg op:invertom 
-['] negate iris:def2arg op:invertim
-['] not    iris:def2immarg op:notom    
-['] not    iris:def2immarg op:notim
-['] abs    iris:def2immarg op:absim
 
 : op:illegal ( s2 s1 dest -- )
   halt-execution
@@ -458,18 +409,107 @@ ConditionRegister iris:defreg! cond!
 
 create iris:dispatch-table
 ['] op:illegal ,
-['] op:addi , ['] op:addo ,
-['] op:subi , ['] op:subo ,
-['] op:muli , ['] op:mulo ,
-['] op:divi , ['] op:divo ,
-['] op:remi , ['] op:remo ,
-['] op:shli , ['] op:shlo ,
-['] op:shri , ['] op:shro ,
-['] op:andi , ['] op:ando ,
-['] op:ori , ['] op:oro ,
-['] op:xori , ['] op:xoro ,
-['] op:mini , ['] op:mino ,
-['] op:maxi , ['] op:maxo ,
+['] op:addi , 
+['] op:addo ,
+['] op:subi , 
+['] op:subo ,
+['] op:muli , 
+['] op:mulo ,
+['] op:divi , 
+['] op:divo ,
+['] op:remi , 
+['] op:remo ,
+['] op:shli , 
+['] op:shlo ,
+['] op:shri , 
+['] op:shro ,
+['] op:andi ,
+['] op:ando ,
+['] op:ori , 
+['] op:oro ,
+['] op:xori , 
+['] op:xoro ,
+['] op:mini ,
+['] op:mino ,
+['] op:maxi ,
+['] op:maxo ,
+
+['] op:addim ,
+['] op:addom ,
+['] op:subim ,
+['] op:subom ,
+['] op:mulim ,
+['] op:mulom ,
+['] op:divim ,
+['] op:divom ,
+['] op:remim ,
+['] op:remom ,
+['] op:shlim ,
+['] op:shlom ,
+['] op:shrim ,
+['] op:shrom ,
+['] op:andim ,
+['] op:andom ,
+['] op:orim ,
+['] op:orom ,
+['] op:xorim ,
+['] op:xorom ,
+['] op:minim , 
+['] op:minom ,
+['] op:maxim ,
+['] op:maxom ,
+
+['] op:eqi , 
+['] op:eqo ,
+['] op:neqi , 
+['] op:neqo ,
+['] op:lei , 
+['] op:leo ,
+['] op:gei , 
+['] op:geo ,
+['] op:lti , 
+['] op:lto ,
+['] op:gti , 
+['] op:gto ,
+
+['] op:goto-if-true ,
+['] op:goto-if-false ,
+['] op:goto-if-true-and-link ,
+['] op:goto-if-false-and-link ,
+['] op:branch-if-true ,
+['] op:branch-if-false ,
+['] op:branch-if-true-and-link ,
+['] op:branch-if-false-and-link ,
+['] op:callr-if-true ,
+['] op:callr-if-false ,
+['] op:calli-if-true ,
+['] op:calli-if-false ,
+['] op:return-if-true , 
+['] op:return-if-false ,
+
+['] op:push-word ,
+['] op:pop-word ,
+['] op:pop-byte ,
+['] op:push-byte ,
+['] op:set16 ,
+['] op:set12 ,
+['] op:set8 ,
+['] op:set4 ,
+['] op:move.reg ,
+['] op:load-data ,
+['] op:store-data ,
+['] op:load-code ,
+['] op:store-code ,
+
+['] op:inci ,
+['] op:inco ,
+['] op:deci ,
+['] op:deco ,
+['] op:inverti ,
+['] op:inverto ,
+['] op:noti ,
+['] op:noto ,
+['] op:absi ,
 
 
 compiletoram
