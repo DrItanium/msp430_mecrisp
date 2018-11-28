@@ -4,16 +4,16 @@ compiletoflash
 : bit-set? ( value bit -- f ) and 0<> ;
 $00 constant gpio:low-to-high
 $01 constant gpio:high-to-low
-$200 constant p1base
-$201 constant p2base
-$220 constant p3base
-$221 constant p4base
-$240 constant p5base
-$241 constant p6base
-$260 constant p7base
-$261 constant p8base
-$280 constant p9base
-$281 constant p10base
+$200 constant port1
+$201 constant port2
+$220 constant port3
+$221 constant port4
+$240 constant port5
+$241 constant port6
+$260 constant port7
+$261 constant port8
+$280 constant port9
+$281 constant port10
 $80 constant pin7
 $40 constant pin6
 $20 constant pin5
@@ -32,6 +32,12 @@ $4 constant button-s1-iv
 $6 constant button-s2-iv
 : button-s2-pressed? ( ifg -- f ) button-s2-iv = ;
 button-s1 button-s2 or constant buttons-s1-s2
+
+\ led constants 
+port1 constant led1-port
+pin0 constant led1-pin
+port9 constant led2-port
+pin7 constant led2-pin
 
 : gpio:digitize-pin-value ( value -- ) 0<> if 1 else 0 then ;
 \ input
@@ -91,38 +97,6 @@ button-s1 button-s2 or constant buttons-s1-s2
 : gpio:interrupt-status@ ( pins port -- v ) &paifg c@ and ;  
 : gpio:clear-interrupt ( pins port -- ) &paifg cbic! ;
 : gpio:set-interrupt ( pins port -- ) &paifg cbis! ;
-compiletoram
-: def-port-regs ( base "constants" -- ) 
-  compiletoflash
-  dup constant \ port-id
-  dup &pain constant 
-  dup &paout constant 
-  dup &padir constant 
-  dup &paren constant 
-  dup &pasel0 constant
-  dup &pasel1 constant
-  dup &paiv constant 
-  dup &paselc constant 
-  dup &paies constant
-  dup &paie constant
-  dup &paifg constant 
-  compiletoram
-  drop ;
-p1base def-port-regs port1 p1in p1out p1dir p1ren p1sel0 p1sel1 p1iv p1selc p1ies p1ie p1ifg
-p2base def-port-regs port2 p2in p2out p2dir p2ren p2sel0 p2sel1 p2iv p2selc p2ies p2ie p2ifg
-p3base def-port-regs port3 p3in p3out p3dir p3ren p3sel0 p3sel1 p3iv p3selc p3ies p3ie p3ifg
-p4base def-port-regs port4 p4in p4out p4dir p4ren p4sel0 p4sel1 p4iv p4selc p4ies p4ie p4ifg
-p5base def-port-regs port5 p5in p5out p5dir p5ren p5sel0 p5sel1 p5iv p5selc p5ies p5ie p5ifg
-p6base def-port-regs port6 p6in p6out p6dir p6ren p6sel0 p6sel1 p6iv p6selc p6ies p6ie p6ifg
-p7base def-port-regs port7 p7in p7out p7dir p7ren p7sel0 p7sel1 p7iv p7selc p7ies p7ie p7ifg
-p8base def-port-regs port8 p8in p8out p8dir p8ren p8sel0 p8sel1 p8iv p8selc p8ies p8ie p8ifg
-p9base def-port-regs port9 p9in p9out p9dir p9ren p9sel0 p9sel1 p9iv p9selc p9ies p9ie p9ifg
-p10base def-port-regs port10 p10in p10out p10dir p10ren p10sel0 p10sel1 p10iv p10selc p10ies p10ie p10ifg
-compiletoflash
-port1 constant led1-port
-pin0 constant led1-pin
-port9 constant led2-port
-pin7 constant led2-pin
 \ interact with buttons and such
 \ taken from the blinky examples
 : led-init ( -- ) 
@@ -134,23 +108,23 @@ pin7 constant led2-pin
 : led1-toggle ( -- ) led1-pin led1-port gpio:toggle-output-on-pin ;
 : led2-toggle ( -- ) led2-pin led2-port gpio:toggle-output-on-pin ;
 \ gpio interaction routines taken from gpio.c of the examples
-: gpio-set-as-output-pin ( pins port -- ) 
+: gpio:set-as-output-pin ( pins port -- ) 
   2dup gpio:set-port-selector0-low
   2dup gpio:set-port-selector1-low
   gpio:set-port-direction-output ;
-: gpio-set-as-input-pin ( pins port -- )
+: gpio:set-as-input-pin ( pins port -- )
   2dup gpio:set-port-selector0-low
   2dup gpio:set-port-selector1-low
   2dup gpio:set-port-direction-input 
   gpio:disable-port-resistor ;
-: gpio-set-as-input-pin-with-pull-down-resistor ( pins port -- ) 
+: gpio:set-as-input-pin-with-pull-down-resistor ( pins port -- ) 
   2dup gpio:set-port-selector0-low
   2dup gpio:set-port-selector1-low
   2dup gpio:set-port-direction-input 
   2dup gpio:enable-port-resistor
   gpio:set-output-low-on-pin 
   ;
-: gpio-set-as-input-pin-with-pull-up-resistor ( pins port -- ) 
+: gpio:set-as-input-pin-with-pull-up-resistor ( pins port -- ) 
   2dup gpio:set-port-selector0-low
   2dup gpio:set-port-selector1-low
   2dup gpio:set-port-direction-input 
@@ -163,10 +137,10 @@ pin7 constant led2-pin
   2dup gpio:clear-interrupt
   gpio:enable-interrupt ;
   
-: configure-button-s1 ( -- ) gpio-high-to-low pin1 port1 configure-button ;
-: configure-button-s2 ( -- ) gpio-high-to-low pin2 port1 configure-button ;
+: configure-button-s1 ( -- ) gpio:high-to-low pin1 port1 configure-button ;
+: configure-button-s2 ( -- ) gpio:high-to-low pin2 port1 configure-button ;
 : configure-buttons ( -- ) configure-button-s1 configure-button-s2 ;
-: buttons-pressed@ ( -- mask ) port1 gpio-iv@ ;
+: buttons-pressed@ ( -- mask ) port1 gpio:iv@ ;
 : reset-buttons-isr ( -- ) 
   buttons-s1-s2 port1 gpio:clear-interrupt ;
 
