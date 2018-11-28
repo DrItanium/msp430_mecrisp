@@ -276,10 +276,11 @@ ConditionRegister iris:defreg@ cond@ ConditionRegister iris:defreg! cond!
     
 \ memory and register manipulation operations
   
+: 2src-extract ( s2 s1 -- r1 r2 ) register@ swap register@ ;
 : iris:perform-load-data ( s2 s1 dest -- ) 
   2arg-form 
   swap register@ data@ swap register! ;
-: iris:perform-store-data ( s2 s1 dest -- ) 2arg-form register@ swap register@ swap data! ;
+: iris:perform-store-data ( s2 s1 dest -- ) 2arg-form 2src-extract swap data! ;
 
 \ setters and move commands
 : iris:perform-set16 ( h l dest -- ) 2arg-imm16-form register! ;
@@ -290,7 +291,6 @@ ConditionRegister iris:defreg@ cond@ ConditionRegister iris:defreg! cond!
 : iris:perform-move.reg ( src2 src dest -- ) 2arg-form swap register@ swap register! ;
 
 \ comparison operations, implied conditional operator is destination
-: 2src-extract ( s2 s1 -- r1 r2 ) register@ swap register@ ;
 : iris:2reg-binary-execute ( s2 s1 addr -- * )
   -rot 
   2src-extract
