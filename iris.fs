@@ -49,18 +49,28 @@ $1FFF construct-mask mask-data&
 $1FFF construct-mask mask-stack&
 
 \ register declarations
-$FF {constseq 
-		constseq1-: StackPointer
-		constseq1-: ControlRegister0
-		constseq1-: ControlRegister1
-		constseq1-: ControlRegister2
-		constseq1-: ControlRegister3
-		constseq1-: ControlRegister4
-		constseq1-: ControlRegister5
-		constseq1-: ControlRegister6
-		constseq1-: ControlRegister7
-		constseq1-: ConditionRegister
-	constseq}
+compiletoram 
+: {registers ( -- $FF ) $FF {constseq ;
+: register: ( n -- n-1 ) 
+  compiletoflash
+  constseq1-:
+  compiletoram ;
+: registers} ( n -- ) constseq} ;
+
+{registers
+		register: StackPointer
+		register: ControlRegister0
+		register: ControlRegister1
+		register: ControlRegister2
+		register: ControlRegister3
+		register: ControlRegister4
+		register: ControlRegister5
+		register: ControlRegister6
+		register: ControlRegister7
+		register: ConditionRegister
+        register: DefaultLinkRegister
+registers}
+compiletoflash
 
 \ instruction decoding routines, assume that the double word setup is handled externally
 : 2arg-imm16-form ( s2 s dest -- imm16 dest )
@@ -123,14 +133,6 @@ $FF {constseq
 
 StackPointer      iris:defreg@ stp@  StackPointer      iris:defreg! stp!
 ConditionRegister iris:defreg@ cond@ ConditionRegister iris:defreg! cond!
-ControlRegister0  iris:defreg@ cr0@  ControlRegister0  iris:defreg! cr0!
-ControlRegister1  iris:defreg@ cr1@  ControlRegister1  iris:defreg! cr1!
-ControlRegister2  iris:defreg@ cr2@  ControlRegister2  iris:defreg! cr2!
-ControlRegister3  iris:defreg@ cr3@  ControlRegister3  iris:defreg! cr3!
-ControlRegister4  iris:defreg@ cr4@  ControlRegister4  iris:defreg! cr4!
-ControlRegister5  iris:defreg@ cr5@  ControlRegister5  iris:defreg! cr5!
-ControlRegister6  iris:defreg@ cr6@  ControlRegister6  iris:defreg! cr6!
-ControlRegister7  iris:defreg@ cr7@  ControlRegister7  iris:defreg! cr7!
 
 : unpack-cond ( -- value ) cond@ 0<> ;
 : pack-cond ( value -- ) 0<> cond! ;
@@ -235,16 +237,16 @@ ControlRegister7  iris:defreg@ cr7@  ControlRegister7  iris:defreg! cr7!
 : callg ( addr -- ) next-address-to-stack goto ;
 
 \ conditional operations
-: op:goto ( s2 s1 d -- ) imm16-only-form goto ;
-: op:goto-and-link ( s2 s1 d -- ) 2arg-imm16-form update-link-register goto ;
-: op:branch ( s2 s1 d -- ) 1arg-form register@ goto ;
-: op:branch-and-link ( s2 s1 d -- ) 
+: iris:perform-goto ( s2 s1 d -- ) imm16-only-form goto ;
+: iris:perform-goto-and-link ( s2 s1 d -- ) 2arg-imm16-form update-link-register goto ;
+: iris:perform-branch ( s2 s1 d -- ) 1arg-form register@ goto ;
+: iris:perform-branch-and-link ( s2 s1 d -- ) 
   2arg-form ( dest link )
   update-link-register ( dest )
   register@ goto ;
-: op:return ( s2 s1 d -- ) 0arg-form pop-word goto ;
-: op:calli ( s2 s1 d -- ) imm16-only-form callg ;
-: op:callr ( s2 s1 d -- ) 1arg-form register@ callg ;
+: iris:perform-return ( s2 s1 d -- ) 0arg-form pop-word goto ;
+: iris:perform-calli ( s2 s1 d -- ) imm16-only-form callg ;
+: iris:perform-callr ( s2 s1 d -- ) 1arg-form register@ callg ;
 
 : iris:defcondop ( uncond-op "name" -- ) 
   <builds ,
@@ -257,35 +259,35 @@ ControlRegister7  iris:defreg@ cr7@  ControlRegister7  iris:defreg! cr7!
         ( s2 s1 d addr -- )
         unpack-cond not if @ execute else 4drop then ;
 
-['] op:goto iris:defcondop op:goto-if-true
-['] op:goto iris:defcondop-false op:goto-if-false
-['] op:goto-and-link iris:defcondop op:goto-if-true-and-link
-['] op:goto-and-link iris:defcondop op:goto-if-false-and-link
-['] op:branch iris:defcondop op:branch-if-true
-['] op:branch iris:defcondop-false op:branch-if-false
-['] op:branch-and-link iris:defcondop op:branch-if-true-and-link
-['] op:branch-and-link iris:defcondop op:branch-if-false-and-link
-['] op:calli iris:defcondop op:calli-if-true 
-['] op:calli iris:defcondop-false op:calli-if-false
-['] op:callr iris:defcondop op:callr-if-true 
-['] op:callr iris:defcondop-false op:callr-if-false
-['] op:return iris:defcondop op:return-if-true
-['] op:return iris:defcondop-false op:return-if-false
+['] iris:perform-goto iris:defcondop iris:perform-goto-if-true
+['] iris:perform-goto iris:defcondop-false iris:perform-goto-if-false
+['] iris:perform-goto-and-link iris:defcondop iris:perform-goto-if-true-and-link
+['] iris:perform-goto-and-link iris:defcondop iris:perform-goto-if-false-and-link
+['] iris:perform-branch iris:defcondop iris:perform-branch-if-true
+['] iris:perform-branch iris:defcondop-false iris:perform-branch-if-false
+['] iris:perform-branch-and-link iris:defcondop iris:perform-branch-if-true-and-link
+['] iris:perform-branch-and-link iris:defcondop iris:perform-branch-if-false-and-link
+['] iris:perform-calli iris:defcondop iris:perform-calli-if-true 
+['] iris:perform-calli iris:defcondop-false iris:perform-calli-if-false
+['] iris:perform-callr iris:defcondop iris:perform-callr-if-true 
+['] iris:perform-callr iris:defcondop-false iris:perform-callr-if-false
+['] iris:perform-return iris:defcondop iris:perform-return-if-true
+['] iris:perform-return iris:defcondop-false iris:perform-return-if-false
     
 \ memory and register manipulation operations
   
-: op:load-data ( s2 s1 dest -- ) 
+: iris:perform-load-data ( s2 s1 dest -- ) 
   2arg-form 
   swap register@ data@ swap register! ;
-: op:store-data ( s2 s1 dest -- ) 2arg-form register@ swap register@ swap data! ;
+: iris:perform-store-data ( s2 s1 dest -- ) 2arg-form register@ swap register@ swap data! ;
 
 \ setters and move commands
-: op:set16 ( h l dest -- ) 2arg-imm16-form register! ;
-: op:set12 ( h l dest -- ) 2arg-imm16-form swap mask-lower-12 swap register! ;
-: op:set8 ( h l dest -- ) 2arg-form swap mask-lower-half swap register! ;
-: op:set4 ( h l dest -- ) 2arg-form swap mask-lowest-int4 swap register! ;
+: iris:perform-set16 ( h l dest -- ) 2arg-imm16-form register! ;
+: iris:perform-set12 ( h l dest -- ) 2arg-imm16-form swap mask-lower-12 swap register! ;
+: iris:perform-set8 ( h l dest -- ) 2arg-form swap mask-lower-half swap register! ;
+: iris:perform-set4 ( h l dest -- ) 2arg-form swap mask-lowest-int4 swap register! ;
 
-: op:move.reg ( src2 src dest -- ) 2arg-form swap register@ swap register! ;
+: iris:perform-move.reg ( src2 src dest -- ) 2arg-form swap register@ swap register! ;
 
 \ comparison operations, implied conditional operator is destination
 : 2src-extract ( s2 s1 -- r1 r2 ) register@ swap register@ ;
@@ -300,12 +302,12 @@ ControlRegister7  iris:defreg@ cr7@  ControlRegister7  iris:defreg! cr7!
   iris:2reg-binary-execute
   pack-cond ;
 
-['] =   iris:defcompareop op:eqo   ['] =   iris:defcompareop op:eqi
-['] <>  iris:defcompareop op:neqo ['] <>  iris:defcompareop op:neqi
-['] u<= iris:defcompareop op:leo ['] <=  iris:defcompareop op:lei
-['] u>= iris:defcompareop op:geo ['] >=  iris:defcompareop op:gei
-['] u<  iris:defcompareop op:lto ['] <   iris:defcompareop op:lti
-['] u>  iris:defcompareop op:gto ['] >   iris:defcompareop op:gti
+['] =   iris:defcompareop iris:perform-eqo   ['] =   iris:defcompareop iris:perform-eqi
+['] <>  iris:defcompareop iris:perform-neqo ['] <>  iris:defcompareop iris:perform-neqi
+['] u<= iris:defcompareop iris:perform-leo ['] <=  iris:defcompareop iris:perform-lei
+['] u>= iris:defcompareop iris:perform-geo ['] >=  iris:defcompareop iris:perform-gei
+['] u<  iris:defcompareop iris:perform-lto ['] <   iris:defcompareop iris:perform-lti
+['] u>  iris:defcompareop iris:perform-gto ['] >   iris:defcompareop iris:perform-gti
 
 \ arithmetic operators
 : iris:defarithop ( op "name" -- )
@@ -324,31 +326,31 @@ ControlRegister7  iris:defreg@ cr7@  ControlRegister7  iris:defreg! cr7!
   rot @ execute 
   r> register! ;
 
-['] +      iris:defarithop op:addo  ['] +      iris:defarithop op:addi
-['] -      iris:defarithop op:subo  ['] -      iris:defarithop op:subi
-['] *      iris:defarithop op:mulo  ['] *      iris:defarithop op:muli
-['] /      iris:defarithop op:divo  ['] /      iris:defarithop op:divi
-['] mod    iris:defarithop op:remo  ['] mod    iris:defarithop op:remi
-['] rshift iris:defarithop op:shro  ['] rshift iris:defarithop op:shri
-['] lshift iris:defarithop op:shlo  ['] lshift iris:defarithop op:shli
-['] and    iris:defarithop op:ando  ['] and    iris:defarithop op:andi
-['] or     iris:defarithop op:oro   ['] or     iris:defarithop op:ori
-['] xor    iris:defarithop op:xoro  ['] xor    iris:defarithop op:xori
-['] umin   iris:defarithop op:mino  ['] min    iris:defarithop op:mini
-['] umax   iris:defarithop op:maxo  ['] max    iris:defarithop op:maxi
+['] +      iris:defarithop iris:perform-addo  ['] +      iris:defarithop iris:perform-addi
+['] -      iris:defarithop iris:perform-subo  ['] -      iris:defarithop iris:perform-subi
+['] *      iris:defarithop iris:perform-mulo  ['] *      iris:defarithop iris:perform-muli
+['] /      iris:defarithop iris:perform-divo  ['] /      iris:defarithop iris:perform-divi
+['] mod    iris:defarithop iris:perform-remo  ['] mod    iris:defarithop iris:perform-remi
+['] rshift iris:defarithop iris:perform-shro  ['] rshift iris:defarithop iris:perform-shri
+['] lshift iris:defarithop iris:perform-shlo  ['] lshift iris:defarithop iris:perform-shli
+['] and    iris:defarithop iris:perform-ando  ['] and    iris:defarithop iris:perform-andi
+['] or     iris:defarithop iris:perform-oro   ['] or     iris:defarithop iris:perform-ori
+['] xor    iris:defarithop iris:perform-xoro  ['] xor    iris:defarithop iris:perform-xori
+['] umin   iris:defarithop iris:perform-mino  ['] min    iris:defarithop iris:perform-mini
+['] umax   iris:defarithop iris:perform-maxo  ['] max    iris:defarithop iris:perform-maxi
 
-['] +      iris:defarithimmop op:addom  ['] +      iris:defarithimmop op:addim
-['] -      iris:defarithimmop op:subom  ['] -      iris:defarithimmop op:subim
-['] *      iris:defarithimmop op:mulom  ['] *      iris:defarithimmop op:mulim
-['] /      iris:defarithimmop op:divom  ['] /      iris:defarithimmop op:divim
-['] mod    iris:defarithimmop op:remom  ['] mod    iris:defarithimmop op:remim
-['] rshift iris:defarithimmop op:shrom  ['] rshift iris:defarithimmop op:shrim
-['] lshift iris:defarithimmop op:shlom  ['] lshift iris:defarithimmop op:shlim
-['] and    iris:defarithimmop op:andom  ['] and    iris:defarithimmop op:andim
-['] or     iris:defarithimmop op:orom   ['] or     iris:defarithimmop op:orim
-['] xor    iris:defarithimmop op:xorom  ['] xor    iris:defarithimmop op:xorim
-['] umin   iris:defarithimmop op:minom  ['] min    iris:defarithimmop op:minim
-['] umax   iris:defarithimmop op:maxom  ['] max    iris:defarithimmop op:maxim
+['] +      iris:defarithimmop iris:perform-addom  ['] +      iris:defarithimmop iris:perform-addim
+['] -      iris:defarithimmop iris:perform-subom  ['] -      iris:defarithimmop iris:perform-subim
+['] *      iris:defarithimmop iris:perform-mulom  ['] *      iris:defarithimmop iris:perform-mulim
+['] /      iris:defarithimmop iris:perform-divom  ['] /      iris:defarithimmop iris:perform-divim
+['] mod    iris:defarithimmop iris:perform-remom  ['] mod    iris:defarithimmop iris:perform-remim
+['] rshift iris:defarithimmop iris:perform-shrom  ['] rshift iris:defarithimmop iris:perform-shrim
+['] lshift iris:defarithimmop iris:perform-shlom  ['] lshift iris:defarithimmop iris:perform-shlim
+['] and    iris:defarithimmop iris:perform-andom  ['] and    iris:defarithimmop iris:perform-andim
+['] or     iris:defarithimmop iris:perform-orom   ['] or     iris:defarithimmop iris:perform-orim
+['] xor    iris:defarithimmop iris:perform-xorom  ['] xor    iris:defarithimmop iris:perform-xorim
+['] umin   iris:defarithimmop iris:perform-minom  ['] min    iris:defarithimmop iris:perform-minim
+['] umax   iris:defarithimmop iris:perform-maxom  ['] max    iris:defarithimmop iris:perform-maxim
 
 \ two argument operations
 : iris:def2arg ( op "name" -- )
@@ -362,87 +364,144 @@ ControlRegister7  iris:defreg@ cr7@  ControlRegister7  iris:defreg! cr7!
   swap register! ;
 
 
-['] 1+     iris:def2arg op:inco    ['] 1+     iris:def2arg op:inci
-['] 1-     iris:def2arg op:deco    ['] 1-     iris:def2arg op:deci
-['] negate iris:def2arg op:inverto ['] negate iris:def2arg op:inverti 
-['] not    iris:def2arg op:noto    ['] not    iris:def2arg op:noti
-['] abs    iris:def2arg op:absi
+['] 1+     iris:def2arg iris:perform-inco    ['] 1+     iris:def2arg iris:perform-inci
+['] 1-     iris:def2arg iris:perform-deco    ['] 1-     iris:def2arg iris:perform-deci
+['] negate iris:def2arg iris:perform-inverto ['] negate iris:def2arg iris:perform-inverti 
+['] not    iris:def2arg iris:perform-noto    ['] not    iris:def2arg iris:perform-noti
+['] abs    iris:def2arg iris:perform-absi
 
-: op:illegal ( s2 s1 dest -- )
+: iris:perform-illegal ( s2 s1 dest -- )
   halt-execution
   ." Illegal Instruction" cr
   ip@ u.lcd
   ;
 
-: op:push-word ( s2 s1 dest -- ) 1arg-form register@ push-word ;
-: op:pop-word ( s2 s1 dest -- ) 1arg-form pop-word swap register! ;
+: iris:perform-push-word ( s2 s1 dest -- ) 1arg-form register@ push-word ;
+: iris:perform-pop-word ( s2 s1 dest -- ) 1arg-form pop-word swap register! ;
 
 create iris:dispatch-table
-['] op:illegal ,
-['] op:addi , ['] op:addo , ['] op:subi , ['] op:subo , ['] op:muli , 
-['] op:mulo , ['] op:divi , ['] op:divo , ['] op:remi , ['] op:remo ,
-['] op:shli , ['] op:shlo , ['] op:shri , ['] op:shro , ['] op:andi ,
-['] op:ando , ['] op:ori , ['] op:oro , ['] op:xori , ['] op:xoro ,
-['] op:mini , ['] op:mino , ['] op:maxi , ['] op:maxo , ['] op:addim ,
-['] op:addom , ['] op:subim , ['] op:subom , ['] op:mulim , ['] op:mulom ,
-['] op:divim , ['] op:divom , ['] op:remim , ['] op:remom , ['] op:shlim ,
-['] op:shlom , ['] op:shrim , ['] op:shrom , ['] op:andim , ['] op:andom ,
-['] op:orim , ['] op:orom , ['] op:xorim , ['] op:xorom , ['] op:minim , 
-['] op:minom , ['] op:maxim , ['] op:maxom , ['] op:eqi , ['] op:eqo ,
-['] op:neqi , ['] op:neqo , ['] op:lei , ['] op:leo , ['] op:gei , 
-['] op:geo , ['] op:lti , ['] op:lto , ['] op:gti , ['] op:gto ,
-['] op:goto , ['] op:goto-and-link , ['] op:branch , ['] op:branch-and-link ,
-['] op:calli , ['] op:callr , ['] op:return , ['] op:goto-if-true ,
-['] op:goto-if-false , ['] op:goto-if-true-and-link ,
-['] op:goto-if-false-and-link , ['] op:branch-if-true ,
-['] op:branch-if-false , ['] op:branch-if-true-and-link ,
-['] op:branch-if-false-and-link , ['] op:callr-if-true ,
-['] op:callr-if-false , ['] op:calli-if-true , ['] op:calli-if-false ,
-['] op:return-if-true , ['] op:return-if-false , ['] op:push-word ,
-['] op:pop-word , ['] op:set16 , ['] op:set12 , ['] op:set8 , ['] op:set4 ,
-['] op:move.reg , ['] op:load-data , ['] op:store-data , ['] op:inci ,
-['] op:inco , ['] op:deci , ['] op:deco , ['] op:inverti , ['] op:inverto ,
-['] op:noti , ['] op:noto , ['] op:absi , 
-\ replace op:illegal addresses with new operations starting here
-['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
-['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
-['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
-['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
-['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
-['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
-['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
-['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
-['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
-['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
-['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
-['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
-['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
-['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
-['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
-['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
-['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
-['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
-['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
-['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
-['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
-['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
-['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
-['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
-['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
-['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
-['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
-['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
-['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
-['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
-['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
-['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
-['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
-['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
-['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
-['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
-['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
-['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
-['] op:illegal , ['] op:illegal , ['] op:illegal , ['] op:illegal ,
+['] iris:perform-illegal ,
+['] iris:perform-addi , ['] iris:perform-addo , ['] iris:perform-subi , 
+['] iris:perform-subo , ['] iris:perform-muli , 
+['] iris:perform-mulo , ['] iris:perform-divi , ['] iris:perform-divo , 
+['] iris:perform-remi , ['] iris:perform-remo ,
+['] iris:perform-shli , ['] iris:perform-shlo , ['] iris:perform-shri , 
+['] iris:perform-shro , ['] iris:perform-andi ,
+['] iris:perform-ando , ['] iris:perform-ori , ['] iris:perform-oro , 
+['] iris:perform-xori , ['] iris:perform-xoro ,
+['] iris:perform-mini , ['] iris:perform-mino , ['] iris:perform-maxi , 
+['] iris:perform-maxo , ['] iris:perform-addim ,
+['] iris:perform-addom , ['] iris:perform-subim , ['] iris:perform-subom , 
+['] iris:perform-mulim , ['] iris:perform-mulom ,
+['] iris:perform-divim , ['] iris:perform-divom , ['] iris:perform-remim , 
+['] iris:perform-remom , ['] iris:perform-shlim ,
+['] iris:perform-shlom , ['] iris:perform-shrim , ['] iris:perform-shrom , 
+['] iris:perform-andim , ['] iris:perform-andom ,
+['] iris:perform-orim , ['] iris:perform-orom , ['] iris:perform-xorim , 
+['] iris:perform-xorom , ['] iris:perform-minim , 
+['] iris:perform-minom , ['] iris:perform-maxim , ['] iris:perform-maxom , 
+['] iris:perform-eqi , ['] iris:perform-eqo ,
+['] iris:perform-neqi , ['] iris:perform-neqo , ['] iris:perform-lei , 
+['] iris:perform-leo , ['] iris:perform-gei , 
+['] iris:perform-geo , ['] iris:perform-lti , ['] iris:perform-lto , 
+['] iris:perform-gti , ['] iris:perform-gto ,
+['] iris:perform-goto , ['] iris:perform-goto-and-link , 
+['] iris:perform-branch , ['] iris:perform-branch-and-link ,
+['] iris:perform-calli , ['] iris:perform-callr , 
+['] iris:perform-return , ['] iris:perform-goto-if-true ,
+['] iris:perform-goto-if-false , ['] iris:perform-goto-if-true-and-link ,
+['] iris:perform-goto-if-false-and-link , ['] iris:perform-branch-if-true ,
+['] iris:perform-branch-if-false , ['] iris:perform-branch-if-true-and-link ,
+['] iris:perform-branch-if-false-and-link , ['] iris:perform-callr-if-true ,
+['] iris:perform-callr-if-false , ['] iris:perform-calli-if-true , 
+['] iris:perform-calli-if-false ,
+['] iris:perform-return-if-true , ['] iris:perform-return-if-false , 
+['] iris:perform-push-word , ['] iris:perform-pop-word , 
+['] iris:perform-set16 , ['] iris:perform-set12 , ['] iris:perform-set8 , 
+['] iris:perform-set4 , ['] iris:perform-move.reg ,
+['] iris:perform-load-data , ['] iris:perform-store-data ,
+['] iris:perform-inci , ['] iris:perform-inco , ['] iris:perform-deci , 
+['] iris:perform-deco , ['] iris:perform-inverti , ['] iris:perform-inverto ,
+['] iris:perform-noti , ['] iris:perform-noto , ['] iris:perform-absi , 
+\ replace iris:perform-illegal addresses with new operations starting here
+['] iris:perform-illegal , ['] iris:perform-illegal , 
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal , 
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
+['] iris:perform-illegal , ['] iris:perform-illegal ,
 
 \ debugging features
 : iris:default-button-handler ( -- ) 
@@ -488,5 +547,118 @@ create iris:dispatch-table
 : init ( -- )
   ." Iris Core Simulator" cr
   iris:sysinit ;
+\ opcodes
+compiletoram
+\ the generators need to be in ram
+: {opcodes ( -- 0 ) 0 {constseq ;
+: opcode: ( n "name" -- n+1 ) 
+  compiletoflash
+  constseq1+:
+  compiletoram ;
+: opcodes} ( n -- ) constseq} ;
+{opcodes
+    opcode: opcode:illegal
+    opcode: opcode:addi  
+    opcode: opcode:addo  
+    opcode: opcode:subi  
+    opcode: opcode:subo  
+    opcode: opcode:muli  
+    opcode: opcode:mulo  
+    opcode: opcode:divi  
+    opcode: opcode:divo  
+    opcode: opcode:remi  
+    opcode: opcode:remo 
+    opcode: opcode:shli  
+    opcode: opcode:shlo  
+    opcode: opcode:shri  
+    opcode: opcode:shro  
+    opcode: opcode:andi 
+    opcode: opcode:ando  
+    opcode: opcode:ori  
+    opcode: opcode:oro  
+    opcode: opcode:xori  
+    opcode: opcode:xoro 
+    opcode: opcode:mini  
+    opcode: opcode:mino  
+    opcode: opcode:maxi  
+    opcode: opcode:maxo  
+    opcode: opcode:addim 
+    opcode: opcode:addom  
+    opcode: opcode:subim  
+    opcode: opcode:subom  
+    opcode: opcode:mulim  
+    opcode: opcode:mulom 
+    opcode: opcode:divim  
+    opcode: opcode:divom  
+    opcode: opcode:remim  
+    opcode: opcode:remom  
+    opcode: opcode:shlim 
+    opcode: opcode:shlom  
+    opcode: opcode:shrim  
+    opcode: opcode:shrom  
+    opcode: opcode:andim  
+    opcode: opcode:andom 
+    opcode: opcode:orim  
+    opcode: opcode:orom  
+    opcode: opcode:xorim  
+    opcode: opcode:xorom  
+    opcode: opcode:minim  
+    opcode: opcode:minom  
+    opcode: opcode:maxim  
+    opcode: opcode:maxom  
+    opcode: opcode:eqi  
+    opcode: opcode:eqo 
+    opcode: opcode:neqi  
+    opcode: opcode:neqo  
+    opcode: opcode:lei  
+    opcode: opcode:leo  
+    opcode: opcode:gei  
+    opcode: opcode:geo  
+    opcode: opcode:lti  
+    opcode: opcode:lto  
+    opcode: opcode:gti  
+    opcode: opcode:gto 
+    opcode: opcode:goto  
+    opcode: opcode:goto-and-link  
+    opcode: opcode:branch  
+    opcode: opcode:branch-and-link 
+    opcode: opcode:calli  
+    opcode: opcode:callr  
+    opcode: opcode:return  
+    opcode: opcode:goto-if-true 
+    opcode: opcode:goto-if-false  
+    opcode: opcode:goto-if-true-and-link 
+    opcode: opcode:goto-if-false-and-link  
+    opcode: opcode:branch-if-true 
+    opcode: opcode:branch-if-false  
+    opcode: opcode:branch-if-true-and-link 
+    opcode: opcode:branch-if-false-and-link  
+    opcode: opcode:callr-if-true 
+    opcode: opcode:callr-if-false  
+    opcode: opcode:calli-if-true  
+    opcode: opcode:calli-if-false 
+    opcode: opcode:return-if-true  
+    opcode: opcode:return-if-false  
+    opcode: opcode:push-word  
+    opcode: opcode:pop-word  
+    opcode: opcode:set16  
+    opcode: opcode:set12  
+    opcode: opcode:set8  
+    opcode: opcode:set4  
+    opcode: opcode:move.reg 
+    opcode: opcode:load-data  
+    opcode: opcode:store-data 
+    opcode: opcode:inci  
+    opcode: opcode:inco  
+    opcode: opcode:deci  
+    opcode: opcode:deco  
+    opcode: opcode:inverti  
+    opcode: opcode:inverto 
+    opcode: opcode:noti  
+    opcode: opcode:noto  
+    opcode: opcode:absi  
+opcodes}
+compiletoflash
+
 compiletoram
 
