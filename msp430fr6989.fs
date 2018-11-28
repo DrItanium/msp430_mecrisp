@@ -1,17 +1,9 @@
 compiletoflash
 \ missing functions that I think are really neat
 \ addresses taken from data sheets
-: &pasel0 ( port-base -- addr ) $0a + ;
-: &pasel1 ( port-base -- addr ) $0c + ;
-: &padir  ( port-base -- addr ) $04 + ;
-: &paren  ( port-base -- addr ) $06 + ;
-: &pain   ( port-base -- addr ) ;
-: &paout  ( port-base -- addr ) $02 + ;
-: &paiv   ( port-base -- addr ) $0e + ;
-: &paselc ( port-base -- addr ) $16 + ;
-: &paies  ( port-base -- addr ) $18 + ;
-: &paie   ( port-base -- addr ) $1a + ;
-: &paifg  ( port-base -- addr ) $1c + ;
+: bit-set? ( value bit -- f ) and 0<> ;
+$00 constant gpio:low-to-high
+$01 constant gpio:high-to-low
 $200 constant p1base
 $201 constant p2base
 $220 constant p3base
@@ -30,6 +22,75 @@ $08 constant pin3
 $04 constant pin2
 $02 constant pin1
 $01 constant pin0
+\ button s1 is mapped to p1.1
+pin1 constant button-s1
+pin2 constant button-s2
+port1 constant button1-port
+port1 constant button2-port
+$4 constant button-s1-iv
+: button-s1-pressed? ( ifg -- f ) button-s1-iv = ;
+$6 constant button-s2-iv
+: button-s2-pressed? ( ifg -- f ) button-s2-iv = ;
+button-s1 button-s2 or constant buttons-s1-s2
+
+: gpio:digitize-pin-value ( value -- ) 0<> if 1 else 0 then ;
+\ input
+: &pain   ( port-base -- addr ) ;
+: gpio:input-pin@ ( port -- v ) &pain c@ ;
+\ output
+: &paout  ( port-base -- addr ) $02 + ;
+: gpio:set-output-high-on-pin ( pins port -- ) &paout cbis! ;
+: gpio:set-output-low-on-pin ( pins port -- ) &paout cbic! ;
+: gpio:toggle-output-on-pin ( pins port -- ) &paout cxor! ;
+\ direction
+: &padir  ( port-base -- addr ) $04 + ;
+: gpio:set-port-direction-input ( pins port -- ) &padir cbic! ;
+: gpio:set-port-direction-output ( pins port -- ) &padir cbis! ;
+: gpio:toggle-port-direction ( pins port -- ) &padir cxor! ;
+\ resistor enable
+: &paren  ( port-base -- addr ) $06 + ;
+: gpio:enable-port-resistor ( pins port -- ) &paren cbis! ;
+: gpio:disable-port-resistor ( pins port -- ) &paren cbic! ;
+: gpio:toggle-port-resistor ( pins port -- ) &paren cxor! ;
+\ selection 0
+: &pasel0 ( port-base -- addr ) $0a + ;
+: gpio:set-port-selector0-high ( pins port -- ) &pasel0 cbis! ;
+: gpio:set-port-selector0-low ( pins port -- ) &pasel0 cbic! ;
+: gpio:toggle-port-selector0 ( pins port -- ) &pasel0 cxor! ;
+\ selection 1
+: &pasel1 ( port-base -- addr ) $0c + ;
+: gpio:set-port-selector1-high ( pins port -- ) &pasel1 cbis! ;
+: gpio:set-port-selector1-low ( pins port -- ) &pasel1 cbic! ;
+: gpio:toggle-port-selector1 ( pins port -- ) &pasel1 cxor! ;
+\ interrupt vector word
+: &paiv   ( port-base -- addr ) $0e + ;
+: gpio:iv@ ( port -- v ) &paiv c@ ;
+\ complement selection
+: &paselc ( port-base -- addr ) $16 + ;
+\ interrupt edge select
+: &paies  ( port-base -- addr ) $18 + ;
+: gpio:set-interrupt-edge-low-to-high ( pins port -- ) &paies cbic! ;
+: gpio:set-interrupt-edge-high-to-low ( pins port -- ) &paies cbis! ;
+: gpio:toggle-interrupt-edge ( pins port -- ) &paies cxor! ;
+: gpio:select-interrupt-edge ( edge pins port -- )
+  rot ( pins port.ies edge ) 
+  gpio:low-to-high = 
+  if \ low to high
+    gpio:set-interrupt-edge-low-to-high
+  else  \ high to low
+    gpio:set-interrupt-edge-high-to-low
+  then ;
+  \ taken from the outofbox example for msp430fr6989
+\ interrupt enable
+: &paie   ( port-base -- addr ) $1a + ;
+: gpio:enable-interrupt ( pins port -- ) &paie cbis! ;
+: gpio:disable-interrupt ( pins port -- ) &paie cbic! ;
+: gpio:toggle-interrupt ( pins port -- ) &paie cxor! ;
+\ interrupt flag
+: &paifg  ( port-base -- addr ) $1c + ;
+: gpio:interrupt-status@ ( pins port -- v ) &paifg c@ and ;  
+: gpio:clear-interrupt ( pins port -- ) &paifg cbic! ;
+: gpio:set-interrupt ( pins port -- ) &paifg cbis! ;
 compiletoram
 : def-port-regs ( base "constants" -- ) 
   compiletoflash
@@ -58,84 +119,56 @@ p8base def-port-regs port8 p8in p8out p8dir p8ren p8sel0 p8sel1 p8iv p8selc p8ie
 p9base def-port-regs port9 p9in p9out p9dir p9ren p9sel0 p9sel1 p9iv p9selc p9ies p9ie p9ifg
 p10base def-port-regs port10 p10in p10out p10dir p10ren p10sel0 p10sel1 p10iv p10selc p10ies p10ie p10ifg
 compiletoflash
+port1 constant led1-port
+pin0 constant led1-pin
+port9 constant led2-port
+pin7 constant led2-pin
 \ interact with buttons and such
-: bit-set? ( value bit -- f ) and 0<> ;
 \ taken from the blinky examples
 : led-init ( -- ) 
-  Pin0 P1DIR cbis!
-  Pin7 P9DIR cbis! ;
-: led1-off ( -- ) Pin0 P1OUT cbic! ;
-: led2-off ( -- ) Pin7 P9OUT cbic! ;
-: led1-toggle ( -- ) Pin0 P1OUT cxor! ;
-: led2-toggle ( -- ) Pin7 P9OUT cxor! ;
+  led1-pin led1-port gpio:set-port-direction-output
+  led2-pin led2-port gpio:set-port-direction-output
+  ;
+: led1-off ( -- ) led1-pin led1-port gpio:set-output-low-on-pin ;
+: led2-off ( -- ) led2-pin led2-port gpio:set-output-low-on-pin ;
+: led1-toggle ( -- ) led1-pin led1-port gpio:toggle-output-on-pin ;
+: led2-toggle ( -- ) led2-pin led2-port gpio:toggle-output-on-pin ;
 \ gpio interaction routines taken from gpio.c of the examples
-$00 constant gpio-low-to-high
-$01 constant gpio-high-to-low
-: gpio-digitize-pin-value ( value -- ) 0<> if 1 else 0 then ;
 : gpio-set-as-output-pin ( pins port -- ) 
-  2dup &pasel0 cbic!
-  2dup &pasel1 cbic!
-  &padir cbis! ;
+  2dup gpio:set-port-selector0-low
+  2dup gpio:set-port-selector1-low
+  gpio:set-port-direction-output ;
 : gpio-set-as-input-pin ( pins port -- )
-  2dup &pasel0 cbic!
-  2dup &pasel1 cbic!
-  2dup &padir cbic!
-  &paren cbic! ;
-: gpio-set-output-high-on-pin ( pins port -- ) &paout cbis! ;
-: gpio-set-output-low-on-pin ( pins port -- ) &paout cbic! ;
-: gpio-toggle-output-on-pin ( pins port -- ) &paout cxor! ;
+  2dup gpio:set-port-selector0-low
+  2dup gpio:set-port-selector1-low
+  2dup gpio:set-port-direction-input 
+  gpio:disable-port-resistor ;
 : gpio-set-as-input-pin-with-pull-down-resistor ( pins port -- ) 
-  2dup &pasel0 cbic! 
-  2dup &pasel1 cbic!
-  2dup &padir  cbic!
-  2dup &paren  cbis!
-  &paout  cbic!
+  2dup gpio:set-port-selector0-low
+  2dup gpio:set-port-selector1-low
+  2dup gpio:set-port-direction-input 
+  2dup gpio:enable-port-resistor
+  gpio:set-output-low-on-pin 
   ;
 : gpio-set-as-input-pin-with-pull-up-resistor ( pins port -- ) 
-  2dup &pasel0 cbic! 
-  2dup &pasel1 cbic!
-  2dup &padir  cbic!
-  2dup &paren  cbis!
-  &paout  cbis!  ;
+  2dup gpio:set-port-selector0-low
+  2dup gpio:set-port-selector1-low
+  2dup gpio:set-port-direction-input 
+  2dup gpio:enable-port-resistor
+  gpio:set-output-high-on-pin ;
 
-: gpio-input-pin@ ( port -- v ) &pain c@ ;
-: gpio-iv@ ( port -- v ) &paiv c@ ;
-: gpio-enable-interrupt ( pins port -- ) &paie cbis! ;
-: gpio-disable-interrupt ( pins port -- ) &paie cbic! ;
-: gpio-interrupt-status@ ( pins port -- v ) &paifg c@ and ;  
-: gpio-clear-interrupt ( pins port -- ) &paifg cbic! ;
-: gpio-select-interrupt-edge ( edge pins port -- )
-  &paies ( edge pins port.ies )
-  rot ( pins port.ies edge ) 
-  0= 
-  if \ low to high
-  	cbic! 
-  else  \ high to low
-  	cbis!
-  then ;
-\ button s1 is mapped to p1.1
-pin1 constant button-s1
-pin2 constant button-s2
-$4 constant button-s1-iv
-$6 constant button-s2-iv
-button-s1 button-s2 or constant buttons-s1-s2
-  \ taken from the outofbox example for msp430fr6989
 : configure-button ( edge pins port -- )
-  2dup 2>r
-  gpio-select-interrupt-edge 
-  2r> 
-  2dup gpio-set-as-input-pin-with-pull-up-resistor
-  2dup gpio-clear-interrupt
-  gpio-enable-interrupt ;
+  2dup 2>r gpio:select-interrupt-edge 2r> 
+  2dup gpio:set-as-input-pin-with-pull-up-resistor
+  2dup gpio:clear-interrupt
+  gpio:enable-interrupt ;
   
 : configure-button-s1 ( -- ) gpio-high-to-low pin1 port1 configure-button ;
 : configure-button-s2 ( -- ) gpio-high-to-low pin2 port1 configure-button ;
 : configure-buttons ( -- ) configure-button-s1 configure-button-s2 ;
-: button-s1-pressed? ( ifg -- f ) button-s1-iv = ;
-: button-s2-pressed? ( ifg -- f ) button-s2-iv = ;
 : buttons-pressed@ ( -- mask ) port1 gpio-iv@ ;
 : reset-buttons-isr ( -- ) 
-  buttons-s1-s2 port1 gpio-clear-interrupt ;
+  buttons-s1-s2 port1 gpio:clear-interrupt ;
 
 \ taken from the lcd examples verbatim
 \ -----------------------------------------------------------------------------
@@ -150,7 +183,6 @@ button-s1 button-s2 or constant buttons-s1-s2
 \   P3.5 RXD
 \   P1.1 Button S1
 \   P1.2 Button S2
-
 $A00 constant LCDCCTL0
 $A02 constant LCDCCTL1
 $A04 constant LCDCBLKCTL
