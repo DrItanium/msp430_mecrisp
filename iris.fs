@@ -423,6 +423,10 @@ ConditionRegister iris:defreg! cond!
   ip@ u.lcd
   ;
 
+: op:push-word ( s2 s1 dest -- ) 1arg-form register@ push-word ;
+: op:pop-word ( s2 s1 dest -- ) 1arg-form pop-word swap register! ;
+
+
 create iris:dispatch-table
 ['] op:illegal ,
 ['] op:addi , 
@@ -512,8 +516,6 @@ create iris:dispatch-table
 
 ['] op:push-word ,
 ['] op:pop-word ,
-['] op:pop-byte ,
-['] op:push-byte ,
 ['] op:set16 ,
 ['] op:set12 ,
 ['] op:set8 ,
