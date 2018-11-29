@@ -73,13 +73,14 @@ registers}
 compiletoflash
 
 \ instruction decoding routines, assume that the double word setup is handled externally
+: make-imm16 ( h l -- value ) swap unhalve ;
 : 2arg-imm16-form ( s2 s dest -- imm16 dest )
-  -rot swap ( dest l h )
-  unhalve ( dest value ) 
+  -rot ( dest h l )
+  make-imm16
   swap ( value dest ) ;
-: imm16-only-form ( h l dest -- imm16 ) drop swap unhalve ;
+: imm16-only-form ( h l dest -- imm16 ) drop make-imm16 ;
 : 2arg-form ( s2 s d -- s d ) rot drop ;
-: 1arg-form ( s2 s d -- d ) -rot 2drop ;
+: 1arg-form ( s2 s d -- d ) nip nip ;
 : 0arg-form ( s2 s d -- ) 3drop ;
 
 \ it seems we have access to the upper ~80kb of memory for storage purposes

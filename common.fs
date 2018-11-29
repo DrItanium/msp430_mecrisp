@@ -38,9 +38,10 @@ $FFF0 construct-mask mask-upper-12
   swap mask-lower-half ( h<<8 lmasked )
   or ;
 : quarter ( d -- lowest lower higher highest )
-  >r halve ( llo lhi )
-  r> halve ( llo lhi hlo hhi ) 
-  ;
+  swap ( h l ) 
+  halve ( h llo lhi )
+  rot ( llo llhi h )
+  halve ;
 : unquarter ( llo lhi hlo hhi -- d )
   unhalve ( llo lhi h )
   -rot unhalve swap ;

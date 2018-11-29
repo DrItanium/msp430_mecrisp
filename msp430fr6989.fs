@@ -23,15 +23,16 @@ $04 constant pin2
 $02 constant pin1
 $01 constant pin0
 \ button s1 is mapped to p1.1
-pin1 constant button-s1
-pin2 constant button-s2
+pin1 constant button1-pin
+pin2 constant button2-pin
 port1 constant button1-port
 port1 constant button2-port
-$4 constant button-s1-iv
-: button-s1-pressed? ( ifg -- f ) button-s1-iv = ;
-$6 constant button-s2-iv
-: button-s2-pressed? ( ifg -- f ) button-s2-iv = ;
-button-s1 button-s2 or constant buttons-s1-s2
+$4 constant button1-iv
+: button-s1-pressed? ( ifg -- f ) button1-iv = ;
+$6 constant button2-iv
+: button-s2-pressed? ( ifg -- f ) button2-iv = ;
+button1-pin button2-pin or constant buttons-pins
+port1 constant buttons-port
 
 \ led constants 
 port1 constant led1-port
@@ -41,25 +42,25 @@ pin7 constant led2-pin
 
 : gpio:digitize-pin-value ( value -- ) 0<> if 1 else 0 then ;
 \ input
-: &pain   ( port-base -- addr ) ;
+: &pain   ( port-base -- addr ) 1-foldable ;
 : gpio:input-pin@ ( port -- v ) &pain c@ ;
 \ output
-: &paout  ( port-base -- addr ) $02 + ;
+: &paout  ( port-base -- addr ) $02 + 1-foldable ;
 : gpio:set-output-high-on-pin ( pins port -- ) &paout cbis! ;
 : gpio:set-output-low-on-pin ( pins port -- ) &paout cbic! ;
 : gpio:toggle-output-on-pin ( pins port -- ) &paout cxor! ;
 \ direction
-: &padir  ( port-base -- addr ) $04 + ;
+: &padir  ( port-base -- addr ) $04 + 1-foldable ;
 : gpio:set-port-direction-input ( pins port -- ) &padir cbic! ;
 : gpio:set-port-direction-output ( pins port -- ) &padir cbis! ;
 : gpio:toggle-port-direction ( pins port -- ) &padir cxor! ;
 \ resistor enable
-: &paren  ( port-base -- addr ) $06 + ;
+: &paren  ( port-base -- addr ) $06 + 1-foldable ;
 : gpio:enable-port-resistor ( pins port -- ) &paren cbis! ;
 : gpio:disable-port-resistor ( pins port -- ) &paren cbic! ;
 : gpio:toggle-port-resistor ( pins port -- ) &paren cxor! ;
 \ selection 0
-: &pasel0 ( port-base -- addr ) $0a + ;
+: &pasel0 ( port-base -- addr ) $0a + 1-foldable ;
 : gpio:set-port-selector0-high ( pins port -- ) &pasel0 cbis! ;
 : gpio:set-port-selector0-low ( pins port -- ) &pasel0 cbic! ;
 : gpio:toggle-port-selector0 ( pins port -- ) &pasel0 cxor! ;
@@ -99,10 +100,9 @@ pin7 constant led2-pin
 : gpio:set-interrupt ( pins port -- ) &paifg cbis! ;
 \ interact with buttons and such
 \ taken from the blinky examples
-: led-init ( -- ) 
-  led1-pin led1-port gpio:set-port-direction-output
-  led2-pin led2-port gpio:set-port-direction-output
-  ;
+: init-led1 ( -- ) led1-pin led1-port gpio:set-port-direction-output ;
+: init-led2 ( -- ) led2-pin led2-port gpio:set-port-direction-output ;
+: led-init ( -- ) init-led1 init-led2 ;
 : led1-off ( -- ) led1-pin led1-port gpio:set-output-low-on-pin ;
 : led2-off ( -- ) led2-pin led2-port gpio:set-output-low-on-pin ;
 : led1-toggle ( -- ) led1-pin led1-port gpio:toggle-output-on-pin ;
@@ -131,18 +131,23 @@ pin7 constant led2-pin
   2dup gpio:enable-port-resistor
   gpio:set-output-high-on-pin ;
 
-: configure-button ( edge pins port -- )
+: button-init ( edge pins port -- )
   2dup 2>r gpio:select-interrupt-edge 2r> 
   2dup gpio:set-as-input-pin-with-pull-up-resistor
   2dup gpio:clear-interrupt
   gpio:enable-interrupt ;
-  
-: configure-button-s1 ( -- ) gpio:high-to-low pin1 port1 configure-button ;
-: configure-button-s2 ( -- ) gpio:high-to-low pin2 port1 configure-button ;
-: configure-buttons ( -- ) configure-button-s1 configure-button-s2 ;
-: buttons-pressed@ ( -- mask ) port1 gpio:iv@ ;
+
+: button-init-s1 ( -- ) 
+  gpio:high-to-low button1-pin button1-port button-init ;
+: button-init-s2 ( -- ) 
+  gpio:high-to-low button2-pin button2-port button-init ;
+: buttons-init ( -- ) 
+  button-init-s1 
+  button-init-s2 ;
+: buttons-pressed@ ( -- mask ) 
+  buttons-port gpio:iv@ ;
 : reset-buttons-isr ( -- ) 
-  buttons-s1-s2 port1 gpio:clear-interrupt ;
+  buttons-pins buttons-port gpio:clear-interrupt ;
 
 \ taken from the lcd examples verbatim
 \ -----------------------------------------------------------------------------
@@ -359,7 +364,7 @@ $0000 ,  \ 127 DEL
 : core:sysinit ( -- )
   lcd-init
   led-init
-  configure-buttons
+  buttons-init
   led1-off
   led2-off
   ;
