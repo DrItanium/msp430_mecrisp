@@ -658,6 +658,7 @@ compiletoram
     opcode: opcode:noti  
     opcode: opcode:noto  
     opcode: opcode:absi  
+    opcode: opcode:last
 opcodes}
 compiletoflash
 
