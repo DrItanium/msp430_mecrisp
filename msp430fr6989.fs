@@ -377,13 +377,18 @@ MPY32BASE $06 + constant OP_MACS \ 16-bit operand 1 - signed multiply accumulate
 MPY32BASE $08 + constant OP_OP2  \ 16-bit operand 2 
 MPY32BASE $0A + constant OP_RESLO \ 16 x 16 result low word
 MPY32BASE $0C + constant OP_RESHI \ 16 x 16 result high word
-
+MPY32BASE $0E + constant OP_SUMEXT \ 16 x 16 sum extension
+: 16x16->o32 ( -- d )
+  OP_RESLO @
+  OP_RESHI @ ;
 : *o16xo16->o32 ( a b -- d ) 
   OP_MPY ! 
   OP_OP2 ! 
-  OP_RESLO @ 
-  OP_RESHI @ ;
-
-  
+  16x16->o32 ;
+: *i16xi16->i32 ( a b -- d ) 
+  OP_MPYS !
+  OP_OP2 !
+  16x16->o32 ;
+ 
 
 compiletoram
