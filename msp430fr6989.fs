@@ -400,6 +400,14 @@ $2A defhwmulreg HWMULT_RES3 \ 32 x 32 result 3 - most significant word
 $2C defhwmulreg HWMULT_MPY32CTL0 \ MPY32 control 0
 
 compiletoflash 
+: hwmult:16x16accum-clear ( -- ) 
+  0 HWULT_RESLO !
+  0 HWULT_RESHI ! ;
+: hwmult:32x32accum-clear ( -- ) 
+  0 HWMULT_RES0 ! 
+  0 HWMULT_RES1 ! 
+  0 HWMULT_RES2 ! 
+  0 HWMULT_RES3 ! ;
 : hwmult:16x16accum ( -- d ) 
   HWMULT_RESLO @
   HWMULT_RESHI @ ;
