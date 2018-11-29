@@ -368,4 +368,22 @@ $0000 ,  \ 127 DEL
   led1-off
   led2-off
   ;
+\ hardware multiplier support, taken from the datasheet
+$04c0 constant MPY32BASE
+MPY32BASE $00 + constant OP_MPY \ 16-bit operand 1 - multiply
+MPY32BASE $02 + constant OP_MPYS \ 16-bit operand 1 - signed multiply
+MPY32BASE $04 + constant OP_MAC \ 16-bit operand 1 - multiply accumulate
+MPY32BASE $06 + constant OP_MACS \ 16-bit operand 1 - signed multiply accumulate
+MPY32BASE $08 + constant OP_OP2  \ 16-bit operand 2 
+MPY32BASE $0A + constant OP_RESLO \ 16 x 16 result low word
+MPY32BASE $0C + constant OP_RESHI \ 16 x 16 result high word
+
+: *o16xo16->o32 ( a b -- d ) 
+  OP_MPY ! 
+  OP_OP2 ! 
+  OP_RESLO @ 
+  OP_RESHI @ ;
+
+  
+
 compiletoram
