@@ -369,26 +369,40 @@ $0000 ,  \ 127 DEL
   led2-off
   ;
 \ hardware multiplier support, taken from the datasheet
-$04c0 constant MPY32BASE
-MPY32BASE $00 + constant OP_MPY \ 16-bit operand 1 - multiply
-MPY32BASE $02 + constant OP_MPYS \ 16-bit operand 1 - signed multiply
-MPY32BASE $04 + constant OP_MAC \ 16-bit operand 1 - multiply accumulate
-MPY32BASE $06 + constant OP_MACS \ 16-bit operand 1 - signed multiply accumulate
-MPY32BASE $08 + constant OP_OP2  \ 16-bit operand 2 
-MPY32BASE $0A + constant OP_RESLO \ 16 x 16 result low word
-MPY32BASE $0C + constant OP_RESHI \ 16 x 16 result high word
-MPY32BASE $0E + constant OP_SUMEXT \ 16 x 16 sum extension
-: 16x16->o32 ( -- d )
-  OP_RESLO @
-  OP_RESHI @ ;
-: *o16xo16->o32 ( a b -- d ) 
-  OP_MPY ! 
-  OP_OP2 ! 
-  16x16->o32 ;
-: *i16xi16->i32 ( a b -- d ) 
-  OP_MPYS !
-  OP_OP2 !
-  16x16->o32 ;
+$04c0 constant HWMULT_BASE
+compiletoram 
+: defhwmultreg ( offset -- ) 
+  compiletoflash
+  HWMULT_BASE + constant 
+  compiletoram ;
+$00 defhwmultreg HWMULT_MPY \ 16-bit operand 1 - multiply
+$02 defhwmultreg HWMULT_MPYS \ 16-bit operand 1 - signed multiply
+$04 defhwmultreg HWMULT_MAC \ 16-bit operand 1 - multiply accumulate
+$06 defhwmultreg HWMULT_MACS \ 16-bit operand 1 - signed multiply accumulate
+$08 defhwmultreg HWMULT_OP2  \ 16-bit operand 2 
+$0A defhwmultreg HWMULT_RESLO \ 16 x 16 result low word
+$0C defhwmultreg HWMULT_RESHI \ 16 x 16 result high word
+$0E defhwmultreg HWMULT_SUMEXT \ 16 x 16 sum extension
+$10 defhwmultreg HWMULT_MPY32L \ 32-bit operand 1 - multiply low word
+$12 defhwmultreg HWMULT_MPY32H \ 32-bit operand 1 - multiply high word
+$14 defhwmultreg HWMULT_MPYS32L \ 32-bit operand 1 - signed multiply low word
+$16 defhwmultreg HWMULT_MPYS32H \ 32-bit operand 1 - signed multiply high word
+
+compiletoflash 
+: hwmult:16x16accum ( -- d ) 
+  HWMULT_RESLO @
+  HWMULT_RESHI @ ;
+: hwmult:def_16bit_operation ( operation "name" -- )
+  <builds , 
+  does> ( a b -- d ) 
+  @ ! 
+  HWMULT_OP2 ! 
+  hwmult:16x16accum ;
+HWMULT_MPY hwmult:def_16bit_operation o16*o16->o32 
+HWMULT_MPYS hwmult:def_16bit_operation i16*i16->i32 
+HWMULT_MAC hwmult:def_16bit_operation o16*o16+o32->o32 
+HWMULT_MACS hwmult:def_16bit_operation i16*i16+i32->i32 
+
  
 
 compiletoram
