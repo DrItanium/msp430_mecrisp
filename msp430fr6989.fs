@@ -407,8 +407,8 @@ compiletoflash
   HWMULT_RES0 @
   HWMULT_RES1 @ ;
 : hwmult:32x32accum-high-dword ( -- d )
-  HWMULT_RES0 @
-  HWMULT_RES1 @ ;
+  HWMULT_RES2 @
+  HWMULT_RES3 @ ;
 : hwmult:32x32accum ( -- dlo dhi )
   hwmult:32x32accum-low-dword
   hwmult:32x32accum-high-dword ;
