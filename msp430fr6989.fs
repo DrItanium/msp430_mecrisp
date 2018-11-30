@@ -431,6 +431,12 @@ HWMULT_MPY hwmult:def_16bit_operation o16*o16->o32
 HWMULT_MPYS hwmult:def_16bit_operation i16*i16->i32 
 HWMULT_MAC hwmult:def_16bit_operation o16*o16+o32->o32 
 HWMULT_MACS hwmult:def_16bit_operation i16*i16+i32->i32 
+
+: *+>d ( a b [previous accumulator implied] -- d ) i16*i16+i32->i32 ;
+: *>d ( a b -- d ) i16*i16->i32 ;
+: *+>ud ( a b [previous accumulator implied] -- d ) o16*o16+o32->o32 ;
+: *>ud ( a b -- d ) o16*o16->o32 ;
+  
 : hwmult:def_32bit_operation_out64 ( opl oph "name" -- )
   <builds , , 
   does> ( d0 d1 -- q )
@@ -447,5 +453,11 @@ HWMULT_MPYS32L HWMULT_MPYS32H hwmult:def_32bit_operation_out64 i32*i32->i64
 HWMULT_MAC32L HWMULT_MAC32H hwmult:def_32bit_operation_out64 o32*o32+o64->o64
 HWMULT_MACS32L HWMULT_MACS32H hwmult:def_32bit_operation_out64 i32*i32+i64->i64
 
+: d* ( d0 d1 -- d ) i32*i32->i64 2drop ;
+: ud* ( d0 d1 -- d ) o32*o32->o64 2drop ;
+: d*>q ( d0 d1 -- q ) i32*i32->i64 ;
+: ud*>q ( d0 d1 -- q ) o32*o32->o64 ;
+: d*+ ( d0 d1 -- q ) i32*i32+i64->i64 2drop ;
+: ud*+ ( d0 d1 -- q ) o32*o32+o64->o64 2drop ;
 
 compiletoram
