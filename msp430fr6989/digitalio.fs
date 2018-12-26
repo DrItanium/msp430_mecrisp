@@ -48,27 +48,97 @@ PORTIV $30 + constant P4IV
 PORTIV_L $30 + constant P4IV_L
 PORTIV_H $30 + constant P4IV_H
 
-: pin-set? ( input pin -- f ) bit-set? ;
-: pin-clear? ( input pin -- f ) bit-clear? ;
+: pin-set? ( pin input -- f ) bit-set? ;
+: pin-clear? ( pin input -- f ) bit-clear? ;
 : portin@ ( port -- pin-status ) PORTIN + c@ ;
 : portout@ ( port -- pin-status ) PORTOUT + c@ ;
+: portout-hi! ( pins port -- ) PORTOUT + cbis! ;
+: portout-lo! ( pins port -- ) PORTOUT + cbic! ;
+: portout-toggle! ( pins port -- ) PORTOUT + cxor! ;
 : portdir@ ( port -- pin-status ) PORTDIR + c@ ;
+: portdir-in! ( pins port -- ) PORTDIR + cbic! ;
+: portdir-out! ( pins port -- ) PORTDIR + cbis! ;
+: portdir-toggle! ( pins port -- ) PORTDIR + cxor! ;
 : portren@ ( port -- pin-status ) PORTREN + c@ ;
+: portren-enable! ( pins port -- ) PORTREN + cbis! ;
+: portren-disable! ( pins port -- ) PORTREN + cbic! ;
+: portren-toggle! ( pins port -- ) PORTREN + cxor! ;
 : portsel0@ ( port -- pin-status ) PORTSEL0 + c@ ;
+: portsel0-hi! ( pins port -- ) PORTSEL0 + cbis! ;
+: portsel0-lo! ( pins port -- ) PORTSEL0 + cbic! ;
+: portsel0-toggle! ( pins port -- ) PORTSEL0 + cxor! ;
 : portsel1@ ( port -- pin-status ) PORTSEL1 + c@ ;
+: portsel1-hi! ( pins port -- ) PORTSEL1 + cbis! ;
+: portsel1-lo! ( pins port -- ) PORTSEL1 + cbic! ;
+: portsel1-toggle! ( pins port -- ) PORTSEL1 + cxor! ;
 : portsel@ ( port -- pin-status0 pin-status1 ) 
 		   dup ( port port )
 		   portsel0@ swap ( pin-status0 port )
 	 	   portsel1@ ; 
 : porties@ ( port -- pin-status ) PORTIES + c@ ;
+: ifg-low-to-high! ( pins port -- ) PORTIES + cbic! ;
+: ifg-high-to-low! ( pins port -- ) PORTIES + cbis! ;
+: ifg-toggle-edge! ( pins port -- ) PORTIES + cxor! ;
+: ifg-edge! ( edge pins port -- ) 
+  rot 0= ( pins port edge ) 
+  if 
+  	ifg-low-to-high! 
+  else
+	ifg-high-to-low! 
+  then ;
+  
 : portie@ ( port -- pin-status ) PORTIE + c@ ;
+: enable-interrupt! ( pins port -- ) PORTIE + cbis! ;
+: disable-interrupt! ( pins port -- ) PORTIE + cbic! ;
+: toggle-interrupt! ( pins port -- ) PORTIE + cxor! ;
 : portifg@ ( port -- pin-status ) PORTIFG + c@ ;
+: clear-interrupt! ( pins port -- ) PORTIFG + cbic! ;
+: set-interrupt! ( pins port -- ) PORTIFG + cbis! ;
+
+: dir-input? ( pin port -- f ) portdir@ pin-clear? ;
+: dir-output? ( pin port -- f ) portdir@ pin-set? ;
+: input-pin? ( pin port -- f )
+  2dup ( pin port pin port ) 
+  portren@ pin-clear? -rot ( f pin port )
+  dir-input? and ;
+: input-with-pulldown-resistor? ( pin port -- f )
+  2dup 2dup ( pin port pin port pin port )
+  dir-input? -rot ( pin port f pin port )
+  portren@ pin-set? and -rot ( pin port f )
+  portout@ pin-clear? and ;
+: input-with-pullup-resistor? ( pin port -- f )
+  2dup 2dup ( pin port pin port pin port )
+  dir-input?  -rot ( pin port f pin port )
+  portren@ pin-set? and -rot 
+  portout@ pin-set? and ;
+: output-pin? ( pin port -- f ) dir-output? ; 
+: gpio-selected? ( pin port -- f ) 
+  2dup ( pin port pin port )
+  portsel0@ pin-clear? -rot 
+  portsel1@ pin-clear? and ;
+: primary-module-function-selected? ( pin port -- f ) 
+  2dup ( pin port pin port )
+  portsel0@ pin-set? -rot 
+  portsel1@ pin-clear? and ;
+: secondary-module-function-selected? ( pin port -- f ) 
+  2dup ( pin port pin port )
+  portsel0@ pin-clear? -rot 
+  portsel1@ pin-set? and ;
+: tertiary-module-function-selected? ( pin port -- f ) 
+  2dup ( pin port pin port )
+  portsel0@ pin-set? -rot 
+  portsel1@ pin-set? and ;
+: interrupt-pending? ( pins port -- f ) portifg@ pin-set? ;
+: ifg-flag-set-on-low-to-high? ( pins port -- f ) porties@ bit-clear? ;
+: ifg-flag-set-on-high-to-low? ( pins port -- f ) porties@ bit-set? ;
+: interrupt-enabled? ( pins port -- f ) portie@ pin-set? ;
 \ hardware peripherals that are known to be there on the devboard
 \ button constants
+	
 PIN1 constant button1-pin
 PIN2 constant button2-pin
-PORT1 constant button1-port
-PORT1 constant button2-port
+button1-pin button2-pin or constant buttons-pins
+PORT1 constant button-port
 
 \ led constants 
 PORT1 constant led1-port
@@ -76,82 +146,24 @@ PIN0 constant led1-pin
 PORT9 constant led2-port
 PIN7 constant led2-pin
 
+: digitize ( value -- ) 0<> if 1 else 0 then ;
+
 
 $4 constant button1-iv
-: button-s1-pressed? ( ifg -- f ) button1-iv = ;
 $6 constant button2-iv
+: button-s1-pressed? ( ifg -- f ) button1-iv = ;
 : button-s2-pressed? ( ifg -- f ) button2-iv = ;
-button1-pin button2-pin or constant buttons-pins
-port1 constant buttons-port
+
+: init-led1 ( -- ) led1-pin led1-port portdir-out! ;
+: init-led2 ( -- ) led2-pin led2-port portdir-out! ;
+: init-leds ( -- ) init-led1 init-led2 ;
+: led1-off ( -- ) led1-pin led1-port portout-lo! ;
+: led2-off ( -- ) led2-pin led2-port portout-lo! ;
+: led1-toggle ( -- ) led1-pin led1-port portout-toggle! ;
+: led2-toggle ( -- ) led2-pin led2-port portout-toggle! ;
 
 
-\ : gpio:digitize-pin-value ( value -- ) 0<> if 1 else 0 then ;
-\ input
-\ : &pain   ( port-base -- addr ) 1-foldable ;
-\ : gpio:input-pin@ ( port -- v ) &pain c@ ;
-\ output
-\ : &paout  ( port-base -- addr ) $02 + 1-foldable ;
-\ : gpio:set-output-high-on-pin ( pins port -- ) &paout cbis! ;
-\ : gpio:set-output-low-on-pin ( pins port -- ) &paout cbic! ;
-\ : gpio:toggle-output-on-pin ( pins port -- ) &paout cxor! ;
-\ direction
-\ : &padir  ( port-base -- addr ) $04 + 1-foldable ;
-\ : gpio:set-port-direction-input ( pins port -- ) &padir cbic! ;
-\ : gpio:set-port-direction-output ( pins port -- ) &padir cbis! ;
-\ : gpio:toggle-port-direction ( pins port -- ) &padir cxor! ;
-\ \ resistor enable
-\ : &paren  ( port-base -- addr ) $06 + 1-foldable ;
-\ : gpio:enable-port-resistor ( pins port -- ) &paren cbis! ;
-\ : gpio:disable-port-resistor ( pins port -- ) &paren cbic! ;
-\ : gpio:toggle-port-resistor ( pins port -- ) &paren cxor! ;
-\ \ selection 0
-\ : &pasel0 ( port-base -- addr ) $0a + 1-foldable ;
-\ : gpio:set-port-selector0-high ( pins port -- ) &pasel0 cbis! ;
-\ : gpio:set-port-selector0-low ( pins port -- ) &pasel0 cbic! ;
-\ : gpio:toggle-port-selector0 ( pins port -- ) &pasel0 cxor! ;
-\ \ selection 1
-\ : &pasel1 ( port-base -- addr ) $0c + ;
-\ : gpio:set-port-selector1-high ( pins port -- ) &pasel1 cbis! ;
-\ : gpio:set-port-selector1-low ( pins port -- ) &pasel1 cbic! ;
-\ : gpio:toggle-port-selector1 ( pins port -- ) &pasel1 cxor! ;
-\ \ interrupt vector word
-\ : &paiv   ( port-base -- addr ) $0e + ;
-\ : gpio:iv@ ( port -- v ) &paiv c@ ;
-\ \ complement selection
-\ : &paselc ( port-base -- addr ) $16 + ;
-\ \ interrupt edge select
-\ : &paies  ( port-base -- addr ) $18 + ;
-\ : gpio:set-interrupt-edge-low-to-high ( pins port -- ) &paies cbic! ;
-\ : gpio:set-interrupt-edge-high-to-low ( pins port -- ) &paies cbis! ;
-\ : gpio:toggle-interrupt-edge ( pins port -- ) &paies cxor! ;
-\ : gpio:select-interrupt-edge ( edge pins port -- )
-\   rot ( pins port.ies edge ) 
-\   gpio:low-to-high = 
-\   if \ low to high
-\     gpio:set-interrupt-edge-low-to-high
-\   else  \ high to low
-\     gpio:set-interrupt-edge-high-to-low
-\   then ;
-\   \ taken from the outofbox example for msp430fr6989
-\ \ interrupt enable
-\ : &paie   ( port-base -- addr ) $1a + ;
-\ : gpio:enable-interrupt ( pins port -- ) &paie cbis! ;
-\ : gpio:disable-interrupt ( pins port -- ) &paie cbic! ;
-\ : gpio:toggle-interrupt ( pins port -- ) &paie cxor! ;
-\ \ interrupt flag
-\ : &paifg  ( port-base -- addr ) $1c + ;
-\ : gpio:interrupt-status@ ( pins port -- v ) &paifg c@ and ;  
-\ : gpio:clear-interrupt ( pins port -- ) &paifg cbic! ;
-\ : gpio:set-interrupt ( pins port -- ) &paifg cbis! ;
 \ \ interact with buttons and such
-\ \ taken from the blinky examples
-\ : init-led1 ( -- ) led1-pin led1-port gpio:set-port-direction-output ;
-\ : init-led2 ( -- ) led2-pin led2-port gpio:set-port-direction-output ;
-\ : led-init ( -- ) init-led1 init-led2 ;
-\ : led1-off ( -- ) led1-pin led1-port gpio:set-output-low-on-pin ;
-\ : led2-off ( -- ) led2-pin led2-port gpio:set-output-low-on-pin ;
-\ : led1-toggle ( -- ) led1-pin led1-port gpio:toggle-output-on-pin ;
-\ : led2-toggle ( -- ) led2-pin led2-port gpio:toggle-output-on-pin ;
 \ \ gpio interaction routines taken from gpio.c of the examples
 \ : gpio:set-as-output-pin ( pins port -- ) 
 \   2dup gpio:set-port-selector0-low
