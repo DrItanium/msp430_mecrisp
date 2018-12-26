@@ -1,17 +1,17 @@
-\ crc16 hardware module access
+\ crc hardware module access (16-bit)
 \ taken from the data sheet
 compiletoflash
-$150 constant CRC16_BASE
+$150 constant CRC_BASE
 compiletoram 
-: defcrc16reg ( offset -- ) 
+: defcrcreg ( offset -- ) 
   compiletoflash
-  CRC16_BASE + constant 
+  CRC_BASE + constant 
   compiletoram ;
 
-$00 defcrc16reg CRC16DI // CRC DATA INPUT
-$02 defcrc16reg CRC16DIRB // CRC data input reverse byte
-$04 defcrc16reg CRC16INIRES // CRC initialization and result
-$06 defcrc16reg CRC16RESR // CRC result reverse byte
+$00 defcrcreg CRCDI // CRC DATA INPUT
+$02 defcrcreg CRCDIRB // CRC data input reverse byte
+$04 defcrcreg CRCINIRES // CRC initialization and result
+$06 defcrcreg CRCRESR // CRC result reverse byte
 compiletoflash
 \ Taken from the documentation for the module
 \ The CRC generator is first initialized by writing a 16-bit word 
@@ -28,12 +28,12 @@ compiletoflash
 \ the following text. The checksum is stored in the product's memory
 \ and is used to check the correctness of the CRC operation result.
 
-\ simple words to access the crc16 engine
-: crc16:seed ( seed -- ) CRC16INIRES ! ;
-: crc16! ( value -- ) CRC16DI ! ;
-: crc16!r ( value -- ) CRC16DIRB ! ;
-: crc16@ ( -- value ) CRC16INIRES @ ;
-: crc16@r ( -- value ) CRC16RESR @ ;
+\ simple words to access the crc engine
+: crc:seed ( seed -- ) CRCINIRES ! ;
+: crc! ( value -- ) CRCDI ! ;
+: crc!r ( value -- ) CRCDIRB ! ;
+: crc@ ( -- value ) CRCINIRES @ ;
+: crc@r ( -- value ) CRCRESR @ ;
 
 
 
