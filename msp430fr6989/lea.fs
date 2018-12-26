@@ -6,3 +6,7 @@
 \ that involve vector-based signal processing, such as 
 \ FIR, IIR, and FFT without CPU intervention. The LEA supports multiple
 \ commands, which are issued by CPU.
+
+\ the LEA command set is broken up into multiple groups
+\ This file is currently empty as it is a DSP in it's own right and uses 
+\ interrupts to signal completion
