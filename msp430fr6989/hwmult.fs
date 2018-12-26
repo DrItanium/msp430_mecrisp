@@ -32,8 +32,8 @@ $2C defhwmulreg HWMULT_MPY32CTL0 \ MPY32 control 0
 
 compiletoflash 
 : hwmult:16x16accum-clear ( -- ) 
-  0 HWULT_RESLO !
-  0 HWULT_RESHI ! ;
+  0 HWMULT_RESLO !
+  0 HWMULT_RESHI ! ;
 : hwmult:32x32accum-clear ( -- ) 
   0 HWMULT_RES0 ! 
   0 HWMULT_RES1 ! 
