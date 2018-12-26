@@ -97,25 +97,13 @@ PORTIV_H $30 + constant P4IV_H
 
 : dir-input? ( pin port -- f ) portdir@ pin-clear? ;
 : dir-output? ( pin port -- f ) portdir@ pin-set? ;
-: input-pin? ( pin port -- f )
-  2dup ( pin port pin port ) 
-  portren@ pin-clear? -rot ( f pin port )
-  dir-input? and ;
-: input-with-pulldown-resistor? ( pin port -- f )
-  2dup 2dup ( pin port pin port pin port )
-  dir-input? -rot ( pin port f pin port )
-  portren@ pin-set? and -rot ( pin port f )
-  portout@ pin-clear? and ;
-: input-with-pullup-resistor? ( pin port -- f )
-  2dup 2dup ( pin port pin port pin port )
-  dir-input?  -rot ( pin port f pin port )
-  portren@ pin-set? and -rot 
-  portout@ pin-set? and ;
-: output-pin? ( pin port -- f ) dir-output? ; 
 : gpio-selected? ( pin port -- f ) 
   2dup ( pin port pin port )
   portsel0@ pin-clear? -rot 
   portsel1@ pin-clear? and ;
+: select-gpio! ( pins port -- ) 
+  2dup portsel0-lo! 
+  portsel1-lo! ;
 : primary-module-function-selected? ( pin port -- f ) 
   2dup ( pin port pin port )
   portsel0@ pin-set? -rot 
@@ -128,6 +116,42 @@ PORTIV_H $30 + constant P4IV_H
   2dup ( pin port pin port )
   portsel0@ pin-set? -rot 
   portsel1@ pin-set? and ;
+: input-pin? ( pin port -- f )
+  2dup ( pin port pin port ) 
+  portren@ pin-clear? -rot ( f pin port )
+  dir-input? and ;
+: input-pin! ( pin port -- ) 
+  2dup select-gpio!
+  2dup portren-disable!
+  portdir-in! ;
+: input-pin-with-pulldown-resistor? ( pin port -- f )
+  2dup 2dup ( pin port pin port pin port )
+  dir-input? -rot ( pin port f pin port )
+  portren@ pin-set? and -rot ( pin port f )
+  portout@ pin-clear? and ;
+: input-pin-with-pulldown-resistor! ( pin port -- ) 
+  2dup select-gpio!
+  2dup portdir-in!
+  2dup portren-enable!
+  portout-lo! ;
+: input-pin-with-pullup-resistor? ( pin port -- f )
+  2dup 2dup ( pin port pin port pin port )
+  dir-input?  -rot ( pin port f pin port )
+  portren@ pin-set? and -rot 
+  portout@ pin-set? and ;
+  
+: input-pin-with-pullup-resistor! ( pin port -- ) 
+  2dup select-gpio!
+  2dup portdir-in!
+  2dup portren-enable!
+  portout-hi! ;
+
+: output-pin? ( pin port -- f ) dir-output? ; 
+
+: output-pin! ( pin port -- ) 
+  2dup select-gpio!
+  portdir-out! ;
+
 : interrupt-pending? ( pins port -- f ) portifg@ pin-set? ;
 : ifg-flag-set-on-low-to-high? ( pins port -- f ) porties@ bit-clear? ;
 : ifg-flag-set-on-high-to-low? ( pins port -- f ) porties@ bit-set? ;
@@ -162,47 +186,17 @@ $6 constant button2-iv
 : led1-toggle ( -- ) led1-pin led1-port portout-toggle! ;
 : led2-toggle ( -- ) led2-pin led2-port portout-toggle! ;
 
+: button-init ( edge pins port -- )
+  2dup 2>r ifg-edge! 2r>
+  2dup input-pin-with-pullup-resistor! 
+  2dup clear-interrupt! 
+  enable-interrupt! ;
 
-\ \ interact with buttons and such
-\ \ gpio interaction routines taken from gpio.c of the examples
-\ : gpio:set-as-output-pin ( pins port -- ) 
-\   2dup gpio:set-port-selector0-low
-\   2dup gpio:set-port-selector1-low
-\   gpio:set-port-direction-output ;
-\ : gpio:set-as-input-pin ( pins port -- )
-\   2dup gpio:set-port-selector0-low
-\   2dup gpio:set-port-selector1-low
-\   2dup gpio:set-port-direction-input 
-\   gpio:disable-port-resistor ;
-\ : gpio:set-as-input-pin-with-pull-down-resistor ( pins port -- ) 
-\   2dup gpio:set-port-selector0-low
-\   2dup gpio:set-port-selector1-low
-\   2dup gpio:set-port-direction-input 
-\   2dup gpio:enable-port-resistor
-\   gpio:set-output-low-on-pin 
-\   ;
-\ : gpio:set-as-input-pin-with-pull-up-resistor ( pins port -- ) 
-\   2dup gpio:set-port-selector0-low
-\   2dup gpio:set-port-selector1-low
-\   2dup gpio:set-port-direction-input 
-\   2dup gpio:enable-port-resistor
-\   gpio:set-output-high-on-pin ;
-\ 
-\ : button-init ( edge pins port -- )
-\   2dup 2>r gpio:select-interrupt-edge 2r> 
-\   2dup gpio:set-as-input-pin-with-pull-up-resistor
-\   2dup gpio:clear-interrupt
-\   gpio:enable-interrupt ;
-\ 
-\ : button-init-s1 ( -- ) 
-\   gpio:high-to-low button1-pin button1-port button-init ;
-\ : button-init-s2 ( -- ) 
-\   gpio:high-to-low button2-pin button2-port button-init ;
-\ : buttons-init ( -- ) 
-\   button-init-s1 
-\   button-init-s2 ;
-\ : buttons-pressed@ ( -- mask ) 
-\   buttons-port gpio:iv@ ;
-\ : reset-buttons-isr ( -- ) 
-\   buttons-pins buttons-port gpio:clear-interrupt ;
+: init-button-s1 ( -- ) 1 button1-pin button-port button-init ;
+: init-button-s2 ( -- ) 1 button2-pin button-port button-init ;
+: init-buttons ( -- ) init-button-s1 init-button-s2 ;
+: buttons-pressed@ ( -- mask ) P1IV c@ ;
+: reset-buttons-isr ( -- ) buttons-pins buttons-port clear-interrupt! ;
+
+
 compiletoram
