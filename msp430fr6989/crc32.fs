@@ -15,6 +15,9 @@ $08 defcrc32reg CRC32INIRESW0 \ crc32 initialization and result word 0
 $0a defcrc32reg CRC32INIRESW1 \ crc32 initialization and result word 1
 $0c defcrc32reg CRC32RESRW1 \ crc32 initialization and result word 1
 $0e defcrc32reg CRC32RESRW0 \ crc32 initialization and result word 0
+$10 defcrc32reg CRC16DIW0 \ crc16 data input
+$16 defcrc32reg CRC16DIRBW0	\ crc16 initialization and resulrt word 0
+$1e defcrc32reg CRC16RESRW1 \ crc16 result reverse word 0
 compiletoflash
 
 compiletoram
