@@ -454,4 +454,35 @@ HWMULT_MACS32L HWMULT_MACS32H hwmult:def_32bit_operation_out64 i32*i32+i64->i64
 : d*+ ( d0 d1 -- q ) i32*i32+i64->i64 2drop ;
 : ud*+ ( d0 d1 -- q ) o32*o32+o64->o64 2drop ;
 
+\ crc16
+
+$150 constant CRC16_BASE
+compiletoram 
+: defcrc16reg ( offset -- ) 
+  compiletoflash
+  CRC16_BASE + constant 
+  compiletoram ;
+
+$00 defcrc16reg CRC16_DI // CRC DATA INPUT
+$02 defcrc16reg CRCDIRB // CRC data input reverse byte
+$04 defcrc16reg CRCINIRES // CRC initialization and result
+$06 defcrc16reg CRCINIRES // CRC result reverse byte
+compiletoflash
+
+\ crc32 
+$0980 constant CRC32_BASE
+compiletoram
+: defcrc32reg ( offset -- )
+  compiletoflash 
+  CRC32_BASE + constant 
+  compiletoram ;
+
+$00 defcrc32reg CRC32DIW0 \ crc32 data input
+$06 defcrc32reg CRC32DIRBW0 \ crc32 data input reverse
+$08 defcrc32reg CRC32INIRESW0 \ crc32 initialization and result word 0
+$0a defcrc32reg CRC32INIRESW1 \ crc32 initialization and result word 1
+$0c defcrc32reg CRC32RESRW1 \ crc32 initialization and result word 1
+$0e defcrc32reg CRC32RESRW0 \ crc32 initialization and result word 0
+compiletoflash
+
 compiletoram
