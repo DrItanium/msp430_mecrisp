@@ -10,9 +10,11 @@ compiletoram
   compiletoram ;
 
 $00 defcrc32reg CRC32DIW0 \ crc32 data input word 0
+$00 defcrc32reg CRC32DIB0 
 $02 defcrc32reg CRC32DIW1 \ crc32 data input word 1
 $04 defcrc32reg CRC32DIRBW1 \ crc32 data input reverse word 1
 $06 defcrc32reg CRC32DIRBW0 \ crc32 data input reverse word 0
+$07 defcrc32reg CRC32DIRBB0 
 $08 defcrc32reg CRC32INIRESW0 \ crc32 initialization and result word 0
 $0a defcrc32reg CRC32INIRESW1 \ crc32 initialization and result word 1
 $0c defcrc32reg CRC32RESRW1 \ crc32 initialization and result word 1
@@ -28,11 +30,10 @@ compiletoflash
 						  CRC32INIRESW0 ! ;
 : crc32@ ( -- dword ) CRC32INIRESW0 @ 
                       CRC32INIRESW1 @ ;
-: crc32@r ( -- dword ) CRC32RESRW0 @ 
-					   CRC32RESRW1 @ ;
-\ : crc32! ( dword -- ) 
+: crc32! ( dword -- ) CRC32DIW1 !
+					  CRC32DIW0 ! ;
 : crc16:seed ( seed -- ) CRC16INIRES ! ;
 : crc16@ ( -- word ) CRC16RESRW1 @ ;
-\ : crc16@r ( -- word ) CRC16RES
+: crc16! ( value -- ) CRC16DIW0 ! ;
 
 compiletoram

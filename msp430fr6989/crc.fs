@@ -31,9 +31,7 @@ compiletoflash
 \ simple words to access the crc engine
 : crc:seed ( seed -- ) CRCINIRES ! ;
 : crc! ( value -- ) CRCDI ! ;
-: crc!r ( value -- ) CRCDIRB ! ;
 : crc@ ( -- value ) CRCINIRES @ ;
-: crc@r ( -- value ) CRCRESR @ ;
 
 
 
