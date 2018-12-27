@@ -66,13 +66,13 @@ HWMULT_MACS hwmult:def_16bit_operation s*>d
 : hwmult:def_32bit_operation_out64 ( opl oph "name" -- )
   <builds , , 
   does> ( d0 d1 -- q )
-  -rot ( d0 addr d1 )
-  HWMULT_OP2H !
+	( d0 d1 addr -- q )
+  swap over ( d0 d1L addr d1h addr )
+  @ ! \ store the upper half into arg1
+  cell+ ! \ store the lower half into arg2
+  swap ( d0H d0L )
   HWMULT_OP2L !
-  tuck ( d0l addr d0h addr )
-  @ ! 
-  cell+ 
-  @ !
+  HWMULT_OP2H !
   hwmult:32x32accum ;
 HWMULT_MPY32L HWMULT_MPY32H hwmult:def_32bit_operation_out64 o32*o32->o64
 HWMULT_MPYS32L HWMULT_MPYS32H hwmult:def_32bit_operation_out64 i32*i32->i64
