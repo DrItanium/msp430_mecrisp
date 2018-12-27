@@ -4,7 +4,7 @@ compiletoflash
 : buttons-toggle-leds ( -- ) 
   \ simple routine that can be easily installed to an ISR 
   \ It's objective is to toggle leds when buttons are pressed
-  buttons-pressed@ dup
+  buttons-pressed@ dup dup
   button-s1-pressed? if led1-toggle then
   button-s2-pressed? if led2-toggle then
   reset-buttons-isr ;
