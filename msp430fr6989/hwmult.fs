@@ -37,10 +37,10 @@ compiletoflash
   @ ! 
   HWMULT_OP2 ! 
   HWMULT_RESLO @ HWMULT_RESHI @ ;
-HWMULT_MAC hwmult:def_16bit_operation su*>d 
-HWMULT_MACS hwmult:def_16bit_operation s*>d 
-HWMULT_MPY hwmult:def_16bit_operation umac 
-HWMULT_MPYS hwmult:def_16bit_operation mac 
+HWMULT_MAC hwmult:def_16bit_operation su*+>d
+HWMULT_MACS hwmult:def_16bit_operation s*+>d
+HWMULT_MPY hwmult:def_16bit_operation su*>d
+HWMULT_MPYS hwmult:def_16bit_operation s*>d
 
 : hwmult:def_32bit_operation_out64 ( opl oph "name" -- )
   <builds , , 
