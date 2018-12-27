@@ -1,4 +1,4 @@
-\ msp430g2553 hardware multiplier interface
+\ msp430x2xx hardware multiplier interface
 
 compiletoflash
 $0130 constant HWMULT_BASE
@@ -18,13 +18,15 @@ $0E defmultreg HWMULT_SUMEXT
 compiletoflash 
 : c* ( a b -- v ) 
   dint \ temporarily disable interrupts
+  nop
   HWMULT_MPYS c!
   HWMULT_OP2 c!
   nop \ make sure to give the hardware more time
   HWMULT_RESLO c@ 
-  eint ;
+  eint nop ;
 : uc* ( a b -- v ) 
   dint \ temporarily disable interrupts
+  nop
   HWMULT_MPY c!
   HWMULT_OP2 c!
   nop \ make sure to give the hardware more time
@@ -32,6 +34,7 @@ compiletoflash
   eint ;
 : c*>s ( a b -- s )
   dint 
+  nop
   HWMULT_MPYS c!
   HWMULT_OP2 c!
   nop
@@ -39,6 +42,7 @@ compiletoflash
   eint ;
 : uc*>s ( a b -- s )
   dint 
+  nop
   HWMULT_MPY c!
   HWMULT_OP2 c!
   nop
@@ -46,6 +50,7 @@ compiletoflash
   eint ;
 : s* ( a b -- v )
   dint
+  nop
   HWMULT_MPYS !
   HWMULT_OP2 !
   nop
@@ -53,6 +58,7 @@ compiletoflash
   eint ;
 : us* ( a b -- v )
   dint
+  nop
   HWMULT_MPY !
   HWMULT_OP2 !
   nop
@@ -61,6 +67,7 @@ compiletoflash
 
 : s*>d ( a b -- d )
   dint
+  nop
   HWMULT_MPYS !
   HWMULT_OP2 !
   nop
@@ -69,6 +76,7 @@ compiletoflash
   eint ;
 : us*>d ( a b -- d )
   dint
+  nop
   HWMULT_MPY !
   HWMULT_OP2 !
   nop
