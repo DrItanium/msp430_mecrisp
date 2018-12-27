@@ -20,4 +20,13 @@ $2E constant P2SEL
 $42 constant P2SEL2
 $2F constant P2REN
 
+$80 constant PIN7
+$40 constant PIN6
+$20 constant PIN5
+$10 constant PIN4
+$08 constant PIN3
+$04 constant PIN2
+$02 constant PIN1
+$01 constant PIN0
+
 compiletoram
