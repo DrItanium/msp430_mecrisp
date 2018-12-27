@@ -32,21 +32,10 @@ $16 constant PORTSELC
 $18 constant PORTIES
 $1A constant PORTIE
 $1C constant PORTIFG
-$0E constant PORTIV
-$0E constant PORTIV_L
-$0F constant PORTIV_H
-PORTIV constant P1IV
-PORTIV_L constant P1IV_L
-PORTIV_H constant P1IV_H
-PORTIV $10 + constant P2IV
-PORTIV_L $10 + constant P2IV_L
-PORTIV_H $10 + constant P2IV_H
-PORTIV $20 + constant P3IV
-PORTIV_L $20 + constant P3IV_L
-PORTIV_H $20 + constant P3IV_H
-PORTIV $30 + constant P4IV
-PORTIV_L $30 + constant P4IV_L
-PORTIV_H $30 + constant P4IV_H
+PORT1 $0E + constant P1IV
+PORT1 $1E + constant P2IV
+PORT3 $0E + constant P3IV
+PORT3 $1E + constant P4IV
 
 : pin-set? ( pin input -- f ) bit-set? ;
 : pin-clear? ( pin input -- f ) bit-clear? ;
@@ -175,8 +164,8 @@ PIN7 constant led2-pin
 
 $4 constant button1-iv
 $6 constant button2-iv
-: button-s1-pressed? ( ifg -- f ) button1-iv = ;
-: button-s2-pressed? ( ifg -- f ) button2-iv = ;
+: button-s1-pressed? ( ifg -- f ) button1-iv and 0<> ;
+: button-s2-pressed? ( ifg -- f ) button2-iv and = ;
 
 : init-led1 ( -- ) led1-pin led1-port portdir-out! ;
 : init-led2 ( -- ) led2-pin led2-port portdir-out! ;
@@ -196,7 +185,7 @@ $6 constant button2-iv
 : init-button-s2 ( -- ) 1 button2-pin button-port button-init ;
 : init-buttons ( -- ) init-button-s1 init-button-s2 ;
 : buttons-pressed@ ( -- mask ) P1IV c@ ;
-: reset-buttons-isr ( -- ) buttons-pins buttons-port clear-interrupt! ;
+: reset-buttons-isr ( -- ) buttons-pins button-port clear-interrupt! ;
 
 
 compiletoram

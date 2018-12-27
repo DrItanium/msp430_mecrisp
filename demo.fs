@@ -1,4 +1,4 @@
-\ depends on msp430fr6989.fs
+\ depends on msp430fr6989/digitalio.fs
 compiletoflash
 
 : buttons-toggle-leds ( -- ) 
@@ -10,12 +10,10 @@ compiletoflash
   reset-buttons-isr ;
 
 : demo-led ( -- )
-  lcd-init
-  led-init
-  configure-buttons
+  init-leds
+  init-buttons
   led1-off 
   led2-off
-  s" demo" typelcd
   ['] buttons-toggle-leds irq-port1 !
   eint ;
 
