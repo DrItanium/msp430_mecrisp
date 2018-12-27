@@ -10,6 +10,7 @@ $25 constant P1IE
 $26 constant P1SEL
 $41 constant P1SEL2
 $27 constant P1REN
+
 $28 constant P2IN
 $29 constant P2OUT
 $2A constant P2DIR
@@ -19,6 +20,7 @@ $2D constant P2IE
 $2E constant P2SEL
 $42 constant P2SEL2
 $2F constant P2REN
+
 
 $80 constant PIN7
 $40 constant PIN6
