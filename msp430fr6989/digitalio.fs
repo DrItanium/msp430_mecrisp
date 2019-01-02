@@ -150,7 +150,7 @@ PORT3 $1E + constant P4IV
 	
 PIN1 constant button1-pin
 PIN2 constant button2-pin
-button1-pin button2-pin or constant buttons-pins
+button1-pin button2-pin or variable buttons-pins
 PORT1 constant button-port
 
 \ led constants 
@@ -164,8 +164,9 @@ PIN7 constant led2-pin
 
 $4 constant button1-iv
 $6 constant button2-iv
-: button-s1-pressed? ( ifg -- f ) button1-iv and 0<> ;
-: button-s2-pressed? ( ifg -- f ) button2-iv and = ;
+: button-pressed? ( iv -- f ) and = ;
+: button-s1-pressed? ( ifg -- f ) button1-iv button-pressed? ;
+: button-s2-pressed? ( ifg -- f ) button2-iv button-pressed? ;
 
 : init-led1 ( -- ) led1-pin led1-port portdir-out! ;
 : init-led2 ( -- ) led2-pin led2-port portdir-out! ;
@@ -185,7 +186,7 @@ $6 constant button2-iv
 : init-button-s2 ( -- ) 1 button2-pin button-port button-init ;
 : init-buttons ( -- ) init-button-s1 init-button-s2 ;
 : buttons-pressed@ ( -- mask ) P1IV c@ ;
-: reset-buttons-isr ( -- ) buttons-pins button-port clear-interrupt! ;
+: reset-buttons-isr ( -- ) buttons-pins @ button-port clear-interrupt! ;
 
 
 compiletoram
